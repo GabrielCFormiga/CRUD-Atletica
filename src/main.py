@@ -514,6 +514,43 @@ def buscar_produto_por_id(id_produto):
             desconecta(conn)
     return None
 
+def buscar_produto_por_nome(nome):
+    """
+    Busca produtos por nome (busca parcial case-insensitive)
+    
+    Args:
+        nome: String com o nome ou parte do nome a buscar
+    """
+    conn = conecta()
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM produtos 
+                WHERE nome ILIKE %s
+                ORDER BY nome
+            """, (f"%{nome}%",))
+            
+            produtos = cursor.fetchall()
+            
+            if produtos:
+                print("\n--- Produtos Encontrados ---")
+                for produto in produtos:
+                    print(f"\nID: {produto[0]}")
+                    print(f"Nome: {produto[1]}")
+                    print(f"Quantidade: {produto[2]}")
+                    print(f"Preço: R${produto[3]:.2f}")
+                print(f"\nTotal encontrado: {len(produtos)}")
+            else:
+                print("\nNenhum produto encontrado com esse nome.")
+                
+        except Error as e:
+            print(f"\nErro ao buscar produtos: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            desconecta(conn)
+
 
 ############################################################################################################
 # MÉTODOS CRUD DE PRODUTOS
@@ -1508,7 +1545,7 @@ def menu_produtos():
         print("5. Buscar produto por nome")
         print("6. Voltar ao menu principal")
         
-        opcao = input("\nEscolha uma opção: ")
+        opcao = input("\nEscolha uma opção: ").strip()
         
         if opcao == "1":
             criar_produto()
@@ -1523,9 +1560,12 @@ def menu_produtos():
             deletar_produto()
             
         elif opcao == "5":
-            nome = input("\nNome do produto a buscar: ")
-            buscar_produto_por_nome(nome)
-            
+            nome = input("\nNome do produto a buscar: ").strip()
+            if nome:  # Verifica se não está vazio
+                buscar_produto_por_nome(nome)
+            else:
+                print("Por favor, digite um nome para busca.")
+                
         elif opcao == "6":
             break
             
