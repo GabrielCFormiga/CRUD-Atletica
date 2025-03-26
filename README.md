@@ -1,10 +1,11 @@
 <p align="center">
   <img src="docs/COMPILADA.png" alt="Compilada Logo" width="200px">
+  <img src="docs/COMPILADA_team.png" alt="Team Logo" width="300px">
 </p>
 
 # CRUD System for Athletic Organization Products
 
-A management system for university athletic organizations featuring customer registration, inventory control, and sales processing. Developed as a project for Database I course at **Universidade Federal da Paraíba**.
+A management system for university athletic organizations featuring customer registration, inventory control, and sales processing. Developed as a project for Database I course at **Universidade Federal da Paraíba** for the **Associação Atlética Acadêmica do Centro de Informática (Compilada)**.
 
 ## Entity-Relationship Diagram
 
