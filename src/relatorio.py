@@ -1,59 +1,10 @@
 from psycopg2 import Error
 
-conn = None
-
-def menu_relatorios(conexao):
-    global conn
-    conn = conexao
-    """
-    Menu de relatórios com opções validadas.
-    """
-    while True:
-        print("\n=== MENU DE RELATÓRIOS ===")
-        print("1. Relatório de sócios")
-        print("2. Relatório de estoque baixo")
-        print("3. Configurar limite para estoque baixo")
-        print("4. Voltar ao menu principal")
-        
-        opcao = input("\nEscolha uma opção: ").strip()
-        
-        if opcao == "1":
-            relatorio_socios()
-            
-        elif opcao == "2":
-            relatorio_estoque_baixo()
-            
-        elif opcao == "3":
-            while True:
-                try:
-                    novo_limite = input("\nNovo limite para estoque baixo (padrão=5): ").strip()
-                    if not novo_limite:
-                        print("Mantendo o valor padrão (5).")
-                        break
-                    
-                    novo_limite = int(novo_limite)
-                    if novo_limite < 1:
-                        print("O limite deve ser pelo menos 1.")
-                        continue
-                    
-                    print(f"\nConfigurando novo limite para {novo_limite} unidades.")
-                    relatorio_estoque_baixo(novo_limite)
-                    break
-                    
-                except ValueError:
-                    print("Por favor, digite um número inteiro válido.")
-            
-        elif opcao == "4":
-            break
-            
-        else:
-            print("Opção inválida. Digite um número entre 1 e 4.")
-
 ############################################################################################################
-# MÉTODOS CRUD DE RELATÓRIOS
+# MÉTODOS CRUD
 ############################################################################################################
 
-def relatorio_socios():
+def relatorio_socios(conn):
     """
     Gera relatório estatístico sobre sócios com tratamento de erros robusto.
     
@@ -107,7 +58,7 @@ def relatorio_socios():
         if cursor:
             cursor.close()
 
-def relatorio_estoque_baixo(limite=5):
+def relatorio_estoque_baixo(conn, limite=5):
     """
     Gera relatório de produtos com estoque baixo com validações.
     
@@ -188,3 +139,49 @@ def relatorio_estoque_baixo(limite=5):
     finally:
         if cursor:
             cursor.close()
+
+############################################################################################################
+# MÉTODOS DE MENU
+############################################################################################################
+
+def menu_relatorios(conn):
+    while True:
+        print("\n=== MENU DE RELATÓRIOS ===")
+        print("1. Relatório de sócios")
+        print("2. Relatório de estoque baixo")
+        print("3. Configurar limite para estoque baixo")
+        print("4. Voltar ao menu principal")
+        
+        opcao = input("\nEscolha uma opção: ").strip()
+        
+        if opcao == "1":
+            relatorio_socios(conn)
+            
+        elif opcao == "2":
+            relatorio_estoque_baixo(conn)
+            
+        elif opcao == "3":
+            while True:
+                try:
+                    novo_limite = input("\nNovo limite para estoque baixo (padrão=5): ").strip()
+                    if not novo_limite:
+                        print("Mantendo o valor padrão (5).")
+                        break
+                    
+                    novo_limite = int(novo_limite)
+                    if novo_limite < 1:
+                        print("O limite deve ser pelo menos 1.")
+                        continue
+                    
+                    print(f"\nConfigurando novo limite para {novo_limite} unidades.")
+                    relatorio_estoque_baixo(conn, novo_limite)
+                    break
+                    
+                except ValueError:
+                    print("Por favor, digite um número inteiro válido.")
+            
+        elif opcao == "4":
+            break
+            
+        else:
+            print("Opção inválida. Digite um número entre 1 e 4.")

@@ -4,45 +4,10 @@ from datetime import datetime, timedelta
 
 from clientes import buscar_cliente_por_matricula
 from produtos import buscar_produto_por_id, listar_produtos, validar_quantidade
-############################################################################################################
-# MÉTODOS DE VALIDAÇÃO DE VENDAS
-############################################################################################################
 
-conn = None
-
-def menu_vendas(conexao):
-    global conn
-    conn = conexao
-    while True:
-        print("\n=== MENU DE VENDAS ===")
-        print("1. Registrar nova venda")
-        print("2. Listar vendas")
-        print("3. Detalhar venda")
-        print("4. Voltar ao menu principal")
-        
-        opcao = input("\nEscolha uma opção: ")
-        
-        if opcao == "1":
-            registrar_venda()
-            
-        elif opcao == "2":
-            listar_vendas()
-            
-        elif opcao == "3":
-            while True:
-                venda_id = input("\nID da venda para detalhar: ").strip()
-                if not venda_id.isdigit():
-                    print("ID inválido! Deve ser um número.")
-                    continue
-                
-                detalhar_venda(venda_id)
-                break
-            
-        elif opcao == "4":
-            break
-            
-        else:
-            print("Opção inválida. Tente novamente.")
+############################################################################################################
+# MÉTODOS DE VALIDAÇÃO
+############################################################################################################
 
 def validar_forma_pagamento(forma):
     """
@@ -59,8 +24,11 @@ def validar_forma_pagamento(forma):
     """
     return forma.upper() in ['PIX', 'DINHEIRO']
 
+############################################################################################################
+# MÉTODOS DE BUSCA
+############################################################################################################
 
-def buscar_venda_por_id(venda_id):
+def buscar_venda_por_id(conn, venda_id):
     """
     Busca uma venda pelo ID no banco de dados.
 
@@ -87,8 +55,7 @@ def buscar_venda_por_id(venda_id):
         if cursor:
             cursor.close()
 
-
-def verificar_estoque_suficiente(id_produto, quantidade):
+def verificar_estoque_suficiente(conn, id_produto, quantidade):
     """
     Verifica se há estoque suficiente para o produto.
 
@@ -114,10 +81,10 @@ def verificar_estoque_suficiente(id_produto, quantidade):
             cursor.close()
 
 ############################################################################################################
-# MÉTODOS CRUD DE VENDAS
+# MÉTODOS CRUD
 ############################################################################################################
 
-def registrar_venda():
+def registrar_venda(conn):
     """
     Registra uma nova venda com validação de dados e tratamento correto de tipos numéricos.
 
@@ -136,7 +103,7 @@ def registrar_venda():
     # Validação do cliente
     while True:
         matricula = input("Matrícula do cliente: ").strip()
-        cliente = buscar_cliente_por_matricula(matricula)
+        cliente = buscar_cliente_por_matricula(conn, matricula)
         
         if not cliente:
             print("Cliente não encontrado!")
@@ -160,7 +127,7 @@ def registrar_venda():
     itens = []
     while True:
         print("\n--- Adicionar Item à Venda ---")
-        listar_produtos()
+        listar_produtos(conn)
         
         # Validação do produto
         while True:
@@ -172,7 +139,7 @@ def registrar_venda():
                 print("ID inválido! Deve ser um número.")
                 continue
             
-            produto = buscar_produto_por_id(id_produto)
+            produto = buscar_produto_por_id(conn, id_produto)
             if not produto:
                 print("Produto não encontrado!")
                 continue
@@ -191,12 +158,12 @@ def registrar_venda():
         # Validação da quantidade
         while True:
             quantidade = input("Quantidade: ").strip()
-            if not validar_quantidade(quantidade):
+            if not validar_quantidade(conn, quantidade):
                 print("Quantidade inválida! Deve ser um número inteiro positivo.")
                 continue
             
             quantidade = int(quantidade)
-            if not verificar_estoque_suficiente(id_produto, quantidade):
+            if not verificar_estoque_suficiente(conn, id_produto, quantidade):
                 print("Quantidade indisponível em estoque!")
                 continue
             
@@ -223,7 +190,7 @@ def registrar_venda():
     print(f"Forma de pagamento: {forma_pagamento}")
     print("\nItens:")
     for item in itens:
-        produto = buscar_produto_por_id(item['id_produto'])
+        produto = buscar_produto_por_id(conn, item['id_produto'])
         subtotal = Decimal(item['quantidade']) * item['preco_unitario']
         print(f"- {produto[1]}: {item['quantidade']}x R${item['preco_unitario']:.2f} = R${subtotal:.2f}")
     
@@ -278,7 +245,7 @@ def registrar_venda():
         if cursor:
             cursor.close()
 
-def listar_vendas():
+def listar_vendas(conn):
     """
     Lista todas as vendas com opções de filtro robustas.
     """
@@ -417,7 +384,7 @@ def listar_vendas():
         if cursor:
             cursor.close()
 
-def detalhar_venda(venda_id):
+def detalhar_venda(conn, venda_id):
     """
     Exibe os detalhes de uma venda específica, incluindo os itens vendidos.
 
@@ -471,3 +438,39 @@ def detalhar_venda(venda_id):
     finally:
         if cursor:
             cursor.close()
+
+############################################################################################################
+# MÉTODOS DE MENU
+############################################################################################################
+
+def menu_vendas(conn):
+    while True:
+        print("\n=== MENU DE VENDAS ===")
+        print("1. Registrar nova venda")
+        print("2. Listar vendas")
+        print("3. Detalhar venda")
+        print("4. Voltar ao menu principal")
+        
+        opcao = input("\nEscolha uma opção: ")
+        
+        if opcao == "1":
+            registrar_venda(conn)
+            
+        elif opcao == "2":
+            listar_vendas(conn)
+            
+        elif opcao == "3":
+            while True:
+                venda_id = input("\nID da venda para detalhar: ").strip()
+                if not venda_id.isdigit():
+                    print("ID inválido! Deve ser um número.")
+                    continue
+                
+                detalhar_venda(conn, venda_id)
+                break
+            
+        elif opcao == "4":
+            break
+            
+        else:
+            print("Opção inválida. Tente novamente.")
