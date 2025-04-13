@@ -7,6 +7,7 @@ import relatorio
 import venda
 import clientes
 import produtos
+import vendedores
 
 ############################################################################################################
 # MAIN
@@ -23,8 +24,9 @@ def main():
             print("1. Gerenciar Clientes")
             print("2. Gerenciar Produtos")
             print("3. Gerenciar Vendas")
-            print("4. Relatórios")
-            print("5. Sair")
+            print("4. Gerenciar Vendedores")
+            print("5. Relatórios")
+            print("6. Sair")
             
             opcao = input("\nEscolha uma opção: ")
             
@@ -35,8 +37,10 @@ def main():
             elif opcao == "3":
                 venda.menu_vendas(conn)
             elif opcao == "4":
-                relatorio.menu_relatorios(conn)
+                vendedores.menu_vendedores(conn)
             elif opcao == "5":
+                relatorio.menu_relatorios(conn)
+            elif opcao == "6":
                 print("Saindo do sistema...")
                 desconecta(conn)
                 break
