@@ -91,22 +91,18 @@ def buscar_cliente_por_matricula(matricula):
     Returns:
         tuple or None: Dados do cliente se encontrado, ou None se não encontrado ou em caso de erro.
     """
-    conn = conecta()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM clientes WHERE matricula = %s", (matricula,))
-            cliente = cursor.fetchone()
-            return cliente
-        except Error as e:
-            print(f"Erro ao buscar cliente: {e}")
-            return None
-        finally:
-            if cursor:
-                cursor.close()
-            desconecta(conn)
-    return None
-
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM clientes WHERE matricula = %s", (matricula,))
+        cliente = cursor.fetchone()
+        return cliente
+    except Error as e:
+        print(f"Erro ao buscar cliente: {e}")
+        return None
+    finally:
+        if cursor:
+            cursor.close()
 
 ############################################################################################################
 # MÉTODOS CRUD DE CLIENTES
@@ -153,22 +149,19 @@ def criar_cliente():
             print("Email inválido! Deve estar no formato 'exemplo@dominio.com'.")
             continue
         
-        conn = conecta()
-        if conn is not None:
-            try:
-                cursor = conn.cursor()
-                cursor.execute("SELECT 1 FROM clientes WHERE email = %s", (email,))
-                if cursor.fetchone():
-                    print("Email já cadastrado no sistema!")
-                    continue
-            except Error as e:
-                print(f"Erro ao verificar email: {e}")
-                return
-            finally:
-                if cursor:
-                    cursor.close()
-                desconecta(conn)
-        break
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1 FROM clientes WHERE email = %s", (email,))
+            if cursor.fetchone():
+                print("Email já cadastrado no sistema!")
+                continue
+        except Error as e:
+            print(f"Erro ao verificar email: {e}")
+            return
+        finally:
+            if cursor:
+                cursor.close()
+            break
     
     # Validação do telefone
     while True:
@@ -190,30 +183,26 @@ def criar_cliente():
     telefone = ''.join(filter(str.isdigit, telefone))
     eh_socio = eh_socio == 'S'
     
-    # Conexão com o banco para inserção
-    conn = conecta()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO clientes (matricula, nome, email, telefone, eh_socio)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (matricula, nome, email, telefone, eh_socio))
-            conn.commit()
-            print("\nCliente cadastrado com sucesso!")
-            print(f"Matrícula: {matricula}")
-            print(f"Nome: {nome}")
-            print(f"Email: {email}")
-            print(f"Telefone: {telefone}")
-            print(f"Status: {'Sócio' if eh_socio else 'Não-sócio'}")
-        except Error as e:
-            conn.rollback()
-            print(f"\nErro ao cadastrar cliente: {e}")
-        finally:
-            if cursor:
-                cursor.close()
-            desconecta(conn)
-
+    # Conexão com o banco para inserção    
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO clientes (matricula, nome, email, telefone, eh_socio)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (matricula, nome, email, telefone, eh_socio))
+        conn.commit()
+        print("\nCliente cadastrado com sucesso!")
+        print(f"Matrícula: {matricula}")
+        print(f"Nome: {nome}")
+        print(f"Email: {email}")
+        print(f"Telefone: {telefone}")
+        print(f"Status: {'Sócio' if eh_socio else 'Não-sócio'}")
+    except Error as e:
+        conn.rollback()
+        print(f"\nErro ao cadastrar cliente: {e}")
+    finally:
+        if cursor:
+            cursor.close()
 
 def listar_clientes():
     """
@@ -226,26 +215,23 @@ def listar_clientes():
     Returns:
         None
     """
-    conn = conecta()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM clientes ORDER BY nome")
-            clientes = cursor.fetchall()
-            
-            print("\n--- Lista de Clientes ---")
-            for cliente in clientes:
-                matricula, nome, email, telefone, eh_socio = cliente
-                status = "Sócio" if eh_socio else "Não-sócio"
-                print(f"Matrícula: {matricula} | Nome: {nome} | Email: {email} | Tel: {telefone} | Status: {status}")
-            print(f"Total de clientes: {len(clientes)}")
-            
-        except Error as e:
-            print(f"Erro ao listar clientes: {e}")
-        finally:
-            if cursor:
-                cursor.close()
-            desconecta(conn)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM clientes ORDER BY nome")
+        clientes = cursor.fetchall()
+        
+        print("\n--- Lista de Clientes ---")
+        for cliente in clientes:
+            matricula, nome, email, telefone, eh_socio = cliente
+            status = "Sócio" if eh_socio else "Não-sócio"
+            print(f"Matrícula: {matricula} | Nome: {nome} | Email: {email} | Tel: {telefone} | Status: {status}")
+        print(f"Total de clientes: {len(clientes)}")
+        
+    except Error as e:
+        print(f"Erro ao listar clientes: {e}")
+    finally:
+        if cursor:
+            cursor.close()
 
 
 def atualizar_cliente():
@@ -300,22 +286,19 @@ def atualizar_cliente():
             break
         if validar_email(novo_email):
             if novo_email != cliente[2]:  # Só verifica se mudou
-                conn = conecta()
-                if conn is not None:
-                    try:
-                        cursor = conn.cursor()
-                        cursor.execute("SELECT 1 FROM clientes WHERE email = %s AND matricula != %s", 
-                                       (novo_email, matricula))
-                        if cursor.fetchone():
-                            print("Email já está em uso por outro cliente!")
-                            continue
-                    except Error as e:
-                        print(f"Erro ao verificar email: {e}")
-                        return
-                    finally:
-                        if cursor:
-                            cursor.close()
-                        desconecta(conn)
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT 1 FROM clientes WHERE email = %s AND matricula != %s", 
+                                    (novo_email, matricula))
+                    if cursor.fetchone():
+                        print("Email já está em uso por outro cliente!")
+                        continue
+                except Error as e:
+                    print(f"Erro ao verificar email: {e}")
+                    return
+                finally:
+                    if cursor:
+                        cursor.close()
             break
         print("Email inválido! Deve estar no formato 'exemplo@dominio.com'.")
     
@@ -353,24 +336,21 @@ def atualizar_cliente():
         return
     
     # Executa a atualização
-    conn = conecta()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE clientes
-                SET nome = %s, email = %s, telefone = %s, eh_socio = %s
-                WHERE matricula = %s
-            """, (novo_nome, novo_email, novo_telefone, novo_status == 'S', matricula))
-            conn.commit()
-            print("\nCliente atualizado com sucesso!")
-        except Error as e:
-            conn.rollback()
-            print(f"\nErro ao atualizar cliente: {e}")
-        finally:
-            if cursor:
-                cursor.close()
-            desconecta(conn)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE clientes
+            SET nome = %s, email = %s, telefone = %s, eh_socio = %s
+            WHERE matricula = %s
+        """, (novo_nome, novo_email, novo_telefone, novo_status == 'S', matricula))
+        conn.commit()
+        print("\nCliente atualizado com sucesso!")
+    except Error as e:
+        conn.rollback()
+        print(f"\nErro ao atualizar cliente: {e}")
+    finally:
+        if cursor:
+            cursor.close()
 
 
 def deletar_cliente(matricula):
@@ -383,19 +363,16 @@ def deletar_cliente(matricula):
     Returns:
         None
     """
-    conn = conecta()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM clientes WHERE matricula = %s", (matricula,))
-            conn.commit()
-            print("Cliente deletado com sucesso!")
-        except Error as e:
-            print(f"Erro ao deletar cliente: {e}")
-        finally:
-            if cursor:
-                cursor.close()
-            desconecta(conn)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM clientes WHERE matricula = %s", (matricula,))
+        conn.commit()
+        print("Cliente deletado com sucesso!")
+    except Error as e:
+        print(f"Erro ao deletar cliente: {e}")
+    finally:
+        if cursor:
+            cursor.close()
 
 
 def buscar_cliente_por_nome(nome):
@@ -408,28 +385,25 @@ def buscar_cliente_por_nome(nome):
     Returns:
         None
     """
-    conn = conecta()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM clientes WHERE nome ILIKE %s ORDER BY nome", (f"%{nome}%",))
-            clientes = cursor.fetchall()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM clientes WHERE nome ILIKE %s ORDER BY nome", (f"%{nome}%",))
+        clientes = cursor.fetchall()
+        
+        if clientes:
+            print("\n--- Resultados da Busca ---")
+            for cliente in clientes:
+                matricula, nome, email, telefone, eh_socio = cliente
+                status = "Sócio" if eh_socio else "Não-sócio"
+                print(f"Matrícula: {matricula} | Nome: {nome} | Email: {email} | Tel: {telefone} | Status: {status}")
+        else:
+            print("Nenhum cliente encontrado com esse nome.")
             
-            if clientes:
-                print("\n--- Resultados da Busca ---")
-                for cliente in clientes:
-                    matricula, nome, email, telefone, eh_socio = cliente
-                    status = "Sócio" if eh_socio else "Não-sócio"
-                    print(f"Matrícula: {matricula} | Nome: {nome} | Email: {email} | Tel: {telefone} | Status: {status}")
-            else:
-                print("Nenhum cliente encontrado com esse nome.")
-                
-        except Error as e:
-            print(f"Erro ao buscar cliente: {e}")
-        finally:
-            if cursor:
-                cursor.close()
-            desconecta(conn)
+    except Error as e:
+        print(f"Erro ao buscar cliente: {e}")
+    finally:
+        if cursor:
+            cursor.close()
 
 ############################################################################################################
 # MÉTODOS DE VALIDAÇÃO DE PRODUTOS
@@ -498,21 +472,17 @@ def buscar_produto_por_id(id_produto):
     Returns:
         tuple or None: Dados do produto se encontrado, ou None se não encontrado ou em caso de erro.
     """
-    conn = conecta()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM produtos WHERE id = %s", (id_produto,))
-            produto = cursor.fetchone()
-            return produto
-        except Error as e:
-            print(f"Erro ao buscar produto: {e}")
-            return None
-        finally:
-            if cursor:
-                cursor.close()
-            desconecta(conn)
-    return None
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM produtos WHERE id = %s", (id_produto,))
+        produto = cursor.fetchone()
+        return produto
+    except Error as e:
+        print(f"Erro ao buscar produto: {e}")
+        return None
+    finally:
+        if cursor:
+            cursor.close()
 
 def buscar_produto_por_nome(nome):
     """
@@ -521,35 +491,32 @@ def buscar_produto_por_nome(nome):
     Args:
         nome: String com o nome ou parte do nome a buscar
     """
-    conn = conecta()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT * FROM produtos 
-                WHERE nome ILIKE %s
-                ORDER BY nome
-            """, (f"%{nome}%",))
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM produtos 
+            WHERE nome ILIKE %s
+            ORDER BY nome
+        """, (f"%{nome}%",))
+        
+        produtos = cursor.fetchall()
+        
+        if produtos:
+            print("\n--- Produtos Encontrados ---")
+            for produto in produtos:
+                print(f"\nID: {produto[0]}")
+                print(f"Nome: {produto[1]}")
+                print(f"Quantidade: {produto[2]}")
+                print(f"Preço: R${produto[3]:.2f}")
+            print(f"\nTotal encontrado: {len(produtos)}")
+        else:
+            print("\nNenhum produto encontrado com esse nome.")
             
-            produtos = cursor.fetchall()
-            
-            if produtos:
-                print("\n--- Produtos Encontrados ---")
-                for produto in produtos:
-                    print(f"\nID: {produto[0]}")
-                    print(f"Nome: {produto[1]}")
-                    print(f"Quantidade: {produto[2]}")
-                    print(f"Preço: R${produto[3]:.2f}")
-                print(f"\nTotal encontrado: {len(produtos)}")
-            else:
-                print("\nNenhum produto encontrado com esse nome.")
-                
-        except Error as e:
-            print(f"\nErro ao buscar produtos: {e}")
-        finally:
-            if cursor:
-                cursor.close()
-            desconecta(conn)
+    except Error as e:
+        print(f"\nErro ao buscar produtos: {e}")
+    finally:
+        if cursor:
+            cursor.close()
 
 
 ############################################################################################################
@@ -578,23 +545,20 @@ def criar_produto():
             continue
         
         # Verifica se produto já existe
-        conn = conecta()
-        if conn is not None:
-            try:
-                cursor = conn.cursor()
-                cursor.execute("SELECT 1 FROM produtos WHERE nome ILIKE %s", (nome,))
-                if cursor.fetchone():
-                    print("Produto com esse nome já cadastrado!")
-                    continue
-            except Error as e:
-                print(f"Erro ao verificar produto: {e}")
-                return
-            finally:
-                if cursor:
-                    cursor.close()
-                desconecta(conn)
-        break
-    
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1 FROM produtos WHERE nome ILIKE %s", (nome,))
+            if cursor.fetchone():
+                print("Produto com esse nome já cadastrado!")
+                continue
+        except Error as e:
+            print(f"Erro ao verificar produto: {e}")
+            return
+        finally:
+            if cursor:
+                cursor.close()
+            break
+
     # Validação da quantidade
     while True:
         quantidade = input("Quantidade em estoque: ").strip()
@@ -614,33 +578,30 @@ def criar_produto():
         break
     
     # Conexão com o banco para inserção
-    conn = conecta()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO produtos (nome, quantidade, preco)
-                VALUES (%s, %s, %s)
-                RETURNING id
-            """, (nome, quantidade, preco))
-            produto_id = cursor.fetchone()[0]
-            conn.commit()
-            
-            print("\nProduto cadastrado com sucesso!")
-            print(f"ID: {produto_id}")
-            print(f"Nome: {nome}")
-            print(f"Quantidade: {quantidade}")
-            print(f"Preço: R${preco:.2f}")
-            
-            return produto_id
-        except Error as e:
-            conn.rollback()
-            print(f"\nErro ao cadastrar produto: {e}")
-            return None
-        finally:
-            if cursor:
-                cursor.close()
-            desconecta(conn)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO produtos (nome, quantidade, preco)
+            VALUES (%s, %s, %s)
+            RETURNING id
+        """, (nome, quantidade, preco))
+        produto_id = cursor.fetchone()[0]
+        conn.commit()
+        
+        print("\nProduto cadastrado com sucesso!")
+        print(f"ID: {produto_id}")
+        print(f"Nome: {nome}")
+        print(f"Quantidade: {quantidade}")
+        print(f"Preço: R${preco:.2f}")
+        
+        return produto_id
+    except Error as e:
+        conn.rollback()
+        print(f"\nErro ao cadastrar produto: {e}")
+        return None
+    finally:
+        if cursor:
+            cursor.close()
 
 
 def listar_produtos():
@@ -654,25 +615,22 @@ def listar_produtos():
     Returns:
         None
     """
-    conn = conecta()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM produtos ORDER BY nome")
-            produtos = cursor.fetchall()
-            
-            print("\n--- Lista de Produtos ---")
-            for produto in produtos:
-                id, nome, quantidade, preco = produto
-                print(f"ID: {id} | Nome: {nome} | Quantidade: {quantidade} | Preço: R${preco:.2f}")
-            print(f"Total de produtos: {len(produtos)}")
-            
-        except Error as e:
-            print(f"Erro ao listar produtos: {e}")
-        finally:
-            if cursor:
-                cursor.close()
-            desconecta(conn)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM produtos ORDER BY nome")
+        produtos = cursor.fetchall()
+        
+        print("\n--- Lista de Produtos ---")
+        for produto in produtos:
+            id, nome, quantidade, preco = produto
+            print(f"ID: {id} | Nome: {nome} | Quantidade: {quantidade} | Preço: R${preco:.2f}")
+        print(f"Total de produtos: {len(produtos)}")
+        
+    except Error as e:
+        print(f"Erro ao listar produtos: {e}")
+    finally:
+        if cursor:
+            cursor.close()
 
 
 def atualizar_produto():
@@ -722,25 +680,22 @@ def atualizar_produto():
             break
         if validar_nome_produto(novo_nome):
             # Verifica se o novo nome já existe (para outro produto)
-            conn = conecta()
-            if conn is not None:
-                try:
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        SELECT 1 FROM produtos 
-                        WHERE nome ILIKE %s AND id != %s
-                    """, (novo_nome, id_produto))
-                    if cursor.fetchone():
-                        print("Já existe outro produto com esse nome!")
-                        continue
-                except Error as e:
-                    print(f"Erro ao verificar produto: {e}")
-                    return
-                finally:
-                    if cursor:
-                        cursor.close()
-                    desconecta(conn)
-            break
+            try:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT 1 FROM produtos 
+                    WHERE nome ILIKE %s AND id != %s
+                """, (novo_nome, id_produto))
+                if cursor.fetchone():
+                    print("Já existe outro produto com esse nome!")
+                    continue
+            except Error as e:
+                print(f"Erro ao verificar produto: {e}")
+                return
+            finally:
+                if cursor:
+                    cursor.close()
+                break
         print("Nome inválido! Deve ter entre 2 e 100 caracteres.")
     
     # Quantidade
@@ -777,24 +732,21 @@ def atualizar_produto():
         return
     
     # Executa a atualização
-    conn = conecta()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE produtos
-                SET nome = %s, quantidade = %s, preco = %s
-                WHERE id = %s
-            """, (novo_nome, nova_quantidade, novo_preco, id_produto))
-            conn.commit()
-            print("\nProduto atualizado com sucesso!")
-        except Error as e:
-            conn.rollback()
-            print(f"\nErro ao atualizar produto: {e}")
-        finally:
-            if cursor:
-                cursor.close()
-            desconecta(conn)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE produtos
+            SET nome = %s, quantidade = %s, preco = %s
+            WHERE id = %s
+        """, (novo_nome, nova_quantidade, novo_preco, id_produto))
+        conn.commit()
+        print("\nProduto atualizado com sucesso!")
+    except Error as e:
+        conn.rollback()
+        print(f"\nErro ao atualizar produto: {e}")
+    finally:
+        if cursor:
+            cursor.close()
 
 
 def deletar_produto():
@@ -840,41 +792,35 @@ def deletar_produto():
         return
     
     # Verifica se o produto está em alguma venda
-    conn = conecta()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT 1 FROM itens_venda 
-                WHERE id_produto = %s LIMIT 1
-            """, (id_produto,))
-            
-            if cursor.fetchone():
-                print("\nEste produto está associado a vendas e não pode ser removido!")
-                return
-        except Error as e:
-            print(f"Erro ao verificar vendas: {e}")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT 1 FROM itens_venda 
+            WHERE id_produto = %s LIMIT 1
+        """, (id_produto,))
+        
+        if cursor.fetchone():
+            print("\nEste produto está associado a vendas e não pode ser removido!")
             return
-        finally:
-            if cursor:
-                cursor.close()
-            desconecta(conn)
-    
+    except Error as e:
+        print(f"Erro ao verificar vendas: {e}")
+        return
+    finally:
+        if cursor:
+            cursor.close()
+
     # Executa a remoção
-    conn = conecta()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM produtos WHERE id = %s", (id_produto,))
-            conn.commit()
-            print("\nProduto removido com sucesso!")
-        except Error as e:
-            conn.rollback()
-            print(f"\nErro ao remover produto: {e}")
-        finally:
-            if cursor:
-                cursor.close()
-            desconecta(conn)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM produtos WHERE id = %s", (id_produto,))
+        conn.commit()
+        print("\nProduto removido com sucesso!")
+    except Error as e:
+        conn.rollback()
+        print(f"\nErro ao remover produto: {e}")
+    finally:
+        if cursor:
+            cursor.close()
 
 ############################################################################################################
 # MÉTODOS DE VALIDAÇÃO DE VENDAS
@@ -906,26 +852,22 @@ def buscar_venda_por_id(venda_id):
     Returns:
         tuple or None: Dados da venda se encontrada, ou None se não encontrada ou em caso de erro.
     """
-    conn = conecta()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT v.id, c.nome, v.valor_total, v.data_venda, v.forma_pagamento
-                FROM vendas v
-                JOIN clientes c ON v.cliente_matricula = c.matricula
-                WHERE v.id = %s
-            """, (venda_id,))
-            venda = cursor.fetchone()
-            return venda
-        except Error as e:
-            print(f"Erro ao buscar venda: {e}")
-            return None
-        finally:
-            if cursor:
-                cursor.close()
-            desconecta(conn)
-    return None
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT v.id, c.nome, v.valor_total, v.data_venda, v.forma_pagamento
+            FROM vendas v
+            JOIN clientes c ON v.cliente_matricula = c.matricula
+            WHERE v.id = %s
+        """, (venda_id,))
+        venda = cursor.fetchone()
+        return venda
+    except Error as e:
+        print(f"Erro ao buscar venda: {e}")
+        return None
+    finally:
+        if cursor:
+            cursor.close()
 
 
 def verificar_estoque_suficiente(id_produto, quantidade):
@@ -939,23 +881,19 @@ def verificar_estoque_suficiente(id_produto, quantidade):
     Returns:
         bool: True se houver estoque suficiente, False caso contrário.
     """
-    conn = conecta()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT quantidade FROM produtos WHERE id = %s
-            """, (id_produto,))
-            resultado = cursor.fetchone()
-            return resultado and resultado[0] >= quantidade
-        except Error as e:
-            print(f"Erro ao verificar estoque: {e}")
-            return False
-        finally:
-            if cursor:
-                cursor.close()
-            desconecta(conn)
-    return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT quantidade FROM produtos WHERE id = %s
+        """, (id_produto,))
+        resultado = cursor.fetchone()
+        return resultado and resultado[0] >= quantidade
+    except Error as e:
+        print(f"Erro ao verificar estoque: {e}")
+        return False
+    finally:
+        if cursor:
+            cursor.close()
 
 ############################################################################################################
 # MÉTODOS CRUD DE VENDAS
@@ -1087,43 +1025,40 @@ def registrar_venda():
         return None
     
     # Registra a venda no banco de dados
-    conn = conecta()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            
-            # Insere a venda (convertendo para float para o PostgreSQL)
+    try:
+        cursor = conn.cursor()
+        
+        # Insere a venda (convertendo para float para o PostgreSQL)
+        cursor.execute("""
+            INSERT INTO vendas (cliente_matricula, valor_total, forma_pagamento)
+            VALUES (%s, %s, %s) RETURNING id
+        """, (matricula, float(valor_total), forma_pagamento))
+        venda_id = cursor.fetchone()[0]
+        
+        # Insere os itens da venda e atualiza estoque
+        for item in itens:
             cursor.execute("""
-                INSERT INTO vendas (cliente_matricula, valor_total, forma_pagamento)
-                VALUES (%s, %s, %s) RETURNING id
-            """, (matricula, float(valor_total), forma_pagamento))
-            venda_id = cursor.fetchone()[0]
+                INSERT INTO itens_venda (id_venda, id_produto, quantidade, valor_unitario)
+                VALUES (%s, %s, %s, %s)
+            """, (venda_id, item['id_produto'], item['quantidade'], float(item['preco_unitario'])))
             
-            # Insere os itens da venda e atualiza estoque
-            for item in itens:
-                cursor.execute("""
-                    INSERT INTO itens_venda (id_venda, id_produto, quantidade, valor_unitario)
-                    VALUES (%s, %s, %s, %s)
-                """, (venda_id, item['id_produto'], item['quantidade'], float(item['preco_unitario'])))
-                
-                cursor.execute("""
-                    UPDATE produtos 
-                    SET quantidade = quantidade - %s 
-                    WHERE id = %s
-                """, (item['quantidade'], item['id_produto']))
-            
-            conn.commit()
-            print(f"\nVenda registrada com sucesso! ID: {venda_id}")
-            return venda_id
-            
-        except Error as e:
-            conn.rollback()
-            print(f"\nErro ao registrar venda: {e}")
-            return None
-        finally:
-            if cursor:
-                cursor.close()
-            desconecta(conn)
+            cursor.execute("""
+                UPDATE produtos 
+                SET quantidade = quantidade - %s 
+                WHERE id = %s
+            """, (item['quantidade'], item['id_produto']))
+        
+        conn.commit()
+        print(f"\nVenda registrada com sucesso! ID: {venda_id}")
+        return venda_id
+        
+    except Error as e:
+        conn.rollback()
+        print(f"\nErro ao registrar venda: {e}")
+        return None
+    finally:
+        if cursor:
+            cursor.close()
 
 def listar_vendas():
     """
@@ -1216,14 +1151,7 @@ def listar_vendas():
             print("Opção inválida! Digite um número entre 1 e 4.")
             continue
     
-    conn = None
-    cursor = None
-    try:
-        conn = conecta()
-        if conn is None:
-            print("\nErro: Não foi possível conectar ao banco de dados")
-            return
-            
+    try:    
         cursor = conn.cursor()
         cursor.execute(query, params)
         vendas = cursor.fetchall()
@@ -1270,8 +1198,6 @@ def listar_vendas():
     finally:
         if cursor:
             cursor.close()
-        if conn:
-            desconecta(conn)
 
 def detalhar_venda(venda_id):
     """
@@ -1288,48 +1214,45 @@ def detalhar_venda(venda_id):
     Returns:
         None
     """
-    conn = conecta()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
+    try:
+        cursor = conn.cursor()
+        
+        # Busca dados da venda
+        cursor.execute("""
+            SELECT v.id, c.nome, v.valor_total, v.data_venda, v.forma_pagamento
+            FROM vendas v
+            JOIN clientes c ON v.cliente_matricula = c.matricula
+            WHERE v.id = %s
+        """, (venda_id,))
+        venda = cursor.fetchone()
+        
+        if venda:
+            print(f"\n--- Detalhes da Venda {venda_id} ---")
+            print(f"Cliente: {venda[1]}")
+            print(f"Valor Total: R${venda[2]:.2f}")
+            print(f"Data: {venda[3]}")
+            print(f"Forma de Pagamento: {venda[4]}")
             
-            # Busca dados da venda
+            # Busca itens da venda
             cursor.execute("""
-                SELECT v.id, c.nome, v.valor_total, v.data_venda, v.forma_pagamento
-                FROM vendas v
-                JOIN clientes c ON v.cliente_matricula = c.matricula
-                WHERE v.id = %s
+                SELECT p.nome, iv.quantidade, iv.valor_unitario
+                FROM itens_venda iv
+                JOIN produtos p ON iv.id_produto = p.id
+                WHERE iv.id_venda = %s
             """, (venda_id,))
-            venda = cursor.fetchone()
+            itens = cursor.fetchall()
             
-            if venda:
-                print(f"\n--- Detalhes da Venda {venda_id} ---")
-                print(f"Cliente: {venda[1]}")
-                print(f"Valor Total: R${venda[2]:.2f}")
-                print(f"Data: {venda[3]}")
-                print(f"Forma de Pagamento: {venda[4]}")
-                
-                # Busca itens da venda
-                cursor.execute("""
-                    SELECT p.nome, iv.quantidade, iv.valor_unitario
-                    FROM itens_venda iv
-                    JOIN produtos p ON iv.id_produto = p.id
-                    WHERE iv.id_venda = %s
-                """, (venda_id,))
-                itens = cursor.fetchall()
-                
-                print("\nItens da Venda:")
-                for item in itens:
-                    print(f"- {item[0]} | {item[1]}x R${item[2]:.2f} | Subtotal: R${item[1] * item[2]:.2f}")
-            else:
-                print("Venda não encontrada!")
-                
-        except Error as e:
-            print(f"Erro ao buscar venda: {e}")
-        finally:
-            if cursor:
-                cursor.close()
-            desconecta(conn)
+            print("\nItens da Venda:")
+            for item in itens:
+                print(f"- {item[0]} | {item[1]}x R${item[2]:.2f} | Subtotal: R${item[1] * item[2]:.2f}")
+        else:
+            print("Venda não encontrada!")
+            
+    except Error as e:
+        print(f"Erro ao buscar venda: {e}")
+    finally:
+        if cursor:
+            cursor.close()
 
 ############################################################################################################
 # MÉTODOS CRUD DE RELATÓRIOS
@@ -1345,14 +1268,7 @@ def relatorio_socios():
     3. Formata e exibe resultados
     4. Trata possíveis erros
     """
-    conn = None
-    cursor = None
     try:
-        conn = conecta()
-        if conn is None:
-            print("\nErro: Não foi possível conectar ao banco de dados")
-            return
-        
         cursor = conn.cursor()
         
         # Query com tratamento de valores nulos
@@ -1395,8 +1311,6 @@ def relatorio_socios():
     finally:
         if cursor:
             cursor.close()
-        if conn:
-            desconecta(conn)
 
 def relatorio_estoque_baixo(limite=5):
     """
@@ -1421,14 +1335,7 @@ def relatorio_estoque_baixo(limite=5):
         print("\nErro: O limite deve ser um número inteiro")
         return
     
-    conn = None
-    cursor = None
     try:
-        conn = conecta()
-        if conn is None:
-            print("\nErro: Não foi possível conectar ao banco de dados")
-            return
-        
         cursor = conn.cursor()
         
         # Query com ordenação por prioridade (estoque mais baixo primeiro)
@@ -1486,8 +1393,6 @@ def relatorio_estoque_baixo(limite=5):
     finally:
         if cursor:
             cursor.close()
-        if conn:
-            desconecta(conn)
 
 ############################################################################################################
 # MÉTODOS DE MENU
@@ -1653,30 +1558,37 @@ def menu_relatorios():
 # MAIN
 ############################################################################################################
 
+conn = None
+
 def main():
-    while True:
-        print("\n=== SISTEMA DA ATLÉTICA COMPILADA ===")
-        print("1. Gerenciar Clientes")
-        print("2. Gerenciar Produtos")
-        print("3. Gerenciar Vendas")
-        print("4. Relatórios")
-        print("5. Sair")
-        
-        opcao = input("\nEscolha uma opção: ")
-        
-        if opcao == "1":
-            menu_clientes()
-        elif opcao == "2":
-            menu_produtos()
-        elif opcao == "3":
-            menu_vendas()
-        elif opcao == "4":
-            menu_relatorios()
-        elif opcao == "5":
-            print("Saindo do sistema...")
-            break
-        else:
-            print("Opção inválida. Tente novamente.")
+    global conn
+    conn = conecta()
+    if conn is not None:
+        while True:
+            print("\n=== SISTEMA DA ATLÉTICA COMPILADA ===")
+            print("1. Gerenciar Clientes")
+            print("2. Gerenciar Produtos")
+            print("3. Gerenciar Vendas")
+            print("4. Relatórios")
+            print("5. Sair")
+            
+            opcao = input("\nEscolha uma opção: ")
+            
+            if opcao == "1":
+                menu_clientes()
+            elif opcao == "2":
+                menu_produtos()
+            elif opcao == "3":
+                menu_vendas()
+            elif opcao == "4":
+                menu_relatorios()
+            elif opcao == "5":
+                print("Saindo do sistema...")
+                desconecta(conn)
+                break
+            else:
+                print("Opção inválida. Tente novamente.")
+    return None
 
 if __name__ == "__main__":
     main()
