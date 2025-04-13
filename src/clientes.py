@@ -1,7 +1,7 @@
 from psycopg2 import Error
 
 ############################################################################################################
-# MÉTODOS DE VALIDAÇÃO DE CLIENTES
+# MÉTODOS DE VALIDAÇÃO
 ############################################################################################################
 
 def validar_matricula(matricula):
@@ -71,10 +71,10 @@ def validar_telefone(telefone):
     return 10 <= len(telefone) <= 11
 
 ############################################################################################################
-# MÉTODOS DE BUSCA DE CLIENTES
+# MÉTODOS DE BUSCA
 ############################################################################################################
 
-def buscar_cliente_por_matricula(matricula):
+def buscar_cliente_por_matricula(conn, matricula):
     """
     Busca um cliente pelo número de matrícula no banco de dados.
     
@@ -97,7 +97,7 @@ def buscar_cliente_por_matricula(matricula):
         if cursor:
             cursor.close()
 
-def buscar_cliente_por_nome(nome):
+def buscar_cliente_por_nome(conn, nome):
     """
     Busca clientes pelo nome no banco de dados.
     
@@ -128,10 +128,10 @@ def buscar_cliente_por_nome(nome):
             cursor.close()
 
 ############################################################################################################
-# MÉTODOS CRUD DE CLIENTES
+# MÉTODOS DE CRUD
 ############################################################################################################
 
-def criar_cliente():
+def criar_cliente(conn):
     """
     Cadastra um novo cliente com validação de dados.
     
@@ -152,7 +152,7 @@ def criar_cliente():
             print("Matrícula inválida! Deve conter apenas números (6-20 dígitos).")
             continue
         
-        if buscar_cliente_por_matricula(matricula):
+        if buscar_cliente_por_matricula(conn, matricula):
             print("Matrícula já cadastrada no sistema!")
             return
         break
@@ -227,7 +227,7 @@ def criar_cliente():
         if cursor:
             cursor.close()
 
-def listar_clientes():
+def listar_clientes(conn):
     """
     Lista todos os clientes cadastrados no banco de dados.
     
@@ -256,7 +256,7 @@ def listar_clientes():
         if cursor:
             cursor.close()
 
-def atualizar_cliente():
+def atualizar_cliente(conn):
     """
     Atualiza os dados de um cliente existente.
     
@@ -273,7 +273,7 @@ def atualizar_cliente():
     
     # Busca pelo cliente
     matricula = input("Digite a matrícula do cliente: ").strip()
-    cliente = buscar_cliente_por_matricula(matricula)
+    cliente = buscar_cliente_por_matricula(conn, matricula)
     
     if not cliente:
         print("\nCliente não encontrado!")
@@ -374,7 +374,7 @@ def atualizar_cliente():
         if cursor:
             cursor.close()
 
-def deletar_cliente(matricula):
+def deletar_cliente(conn, matricula):
     """
     Remove um cliente do banco de dados.
     
@@ -399,11 +399,7 @@ def deletar_cliente(matricula):
 # MÉTODOS DE MENU
 ############################################################################################################
 
-conn = None
-
-def menu_clientes(conexao):
-    global conn
-    conn = conexao
+def menu_clientes(conn):
     while True:
         print("\n=== MENU DE CLIENTES ===")
         print("1. Cadastrar novo cliente")
@@ -416,28 +412,28 @@ def menu_clientes(conexao):
         opcao = input("\nEscolha uma opção: ")
         
         if opcao == "1":
-            criar_cliente()
+            criar_cliente(conn)
             
         elif opcao == "2":
-            listar_clientes()
+            listar_clientes(conn)
             
         elif opcao == "3":
-            atualizar_cliente()
+            atualizar_cliente(conn)
             
         elif opcao == "4":
             matricula = input("\nMatrícula do cliente a ser removido: ")
-            cliente = buscar_cliente_por_matricula(matricula)
+            cliente = buscar_cliente_por_matricula(conn, matricula)
             
             if cliente:
                 confirmacao = input(f"Tem certeza que deseja remover {cliente[1]} (matrícula: {matricula})? (S/N): ").upper()
                 if confirmacao == "S":
-                    deletar_cliente(matricula)
+                    deletar_cliente(conn, matricula)
             else:
                 print("Cliente não encontrado!")
                 
         elif opcao == "5":
             nome = input("\nNome do cliente a buscar: ")
-            buscar_cliente_por_nome(nome)
+            buscar_cliente_por_nome(conn, nome)
             
         elif opcao == "6":
             break

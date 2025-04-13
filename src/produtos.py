@@ -1,7 +1,7 @@
 from psycopg2 import Error
 
 ############################################################################################################
-# MÉTODOS DE VALIDAÇÃO DE PRODUTOS
+# MÉTODOS DE VALIDAÇÃO
 ############################################################################################################
 
 def validar_nome_produto(nome):
@@ -20,7 +20,7 @@ def validar_nome_produto(nome):
     """
     return len(nome) >= 2 and len(nome) <= 100 and not nome.isspace()
 
-def validar_quantidade(quantidade):
+def validar_quantidade(conn, quantidade):
     """
     Valida se a quantidade é um inteiro positivo.
 
@@ -51,10 +51,10 @@ def validar_preco(preco):
         return False
 
 ############################################################################################################
-# MÉTODOS DE BUSCA DE PRODUTOS
+# MÉTODOS DE BUSCA
 ############################################################################################################
 
-def buscar_produto_por_id(id_produto):
+def buscar_produto_por_id(conn, id_produto):
     """
     Busca um produto pelo ID no banco de dados.
 
@@ -76,7 +76,7 @@ def buscar_produto_por_id(id_produto):
         if cursor:
             cursor.close()
 
-def buscar_produto_por_nome(nome):
+def buscar_produto_por_nome(conn, nome):
     """
     Busca produtos por nome (busca parcial case-insensitive)
     
@@ -111,10 +111,10 @@ def buscar_produto_por_nome(nome):
             cursor.close()
 
 ############################################################################################################
-# MÉTODOS CRUD DE PRODUTOS
+# MÉTODOS DE CRUD
 ############################################################################################################
 
-def criar_produto():
+def criar_produto(conn):
     """
     Cadastra um novo produto com validação de dados.
 
@@ -194,7 +194,7 @@ def criar_produto():
         if cursor:
             cursor.close()
 
-def listar_produtos():
+def listar_produtos(conn):
     """
     Lista todos os produtos cadastrados no banco de dados.
 
@@ -222,7 +222,7 @@ def listar_produtos():
         if cursor:
             cursor.close()
 
-def atualizar_produto():
+def atualizar_produto(conn):
     """
     Atualiza os dados de um produto existente.
 
@@ -244,7 +244,7 @@ def atualizar_produto():
             print("ID inválido! Deve ser um número.")
             continue
         
-        produto = buscar_produto_por_id(id_produto)
+        produto = buscar_produto_por_id(conn, id_produto)
         if not produto:
             print("\nProduto não encontrado!")
             return
@@ -337,7 +337,7 @@ def atualizar_produto():
         if cursor:
             cursor.close()
 
-def deletar_produto():
+def deletar_produto(conn):
     """
     Remove um produto do sistema com confirmação.
 
@@ -359,7 +359,7 @@ def deletar_produto():
             print("ID inválido! Deve ser um número.")
             continue
         
-        produto = buscar_produto_por_id(id_produto)
+        produto = buscar_produto_por_id(conn, id_produto)
         if not produto:
             print("\nProduto não encontrado!")
             return
@@ -414,11 +414,7 @@ def deletar_produto():
 # MÉTODOS DE MENU
 ############################################################################################################
 
-conn = None
-
-def menu_produtos(conexao):
-    global conn
-    conn = conexao
+def menu_produtos(conn):
     while True:
         print("\n=== MENU DE PRODUTOS ===")
         print("1. Cadastrar novo produto")
@@ -431,21 +427,21 @@ def menu_produtos(conexao):
         opcao = input("\nEscolha uma opção: ").strip()
         
         if opcao == "1":
-            criar_produto()
+            criar_produto(conn)
             
         elif opcao == "2":
-            listar_produtos()
+            listar_produtos(conn)
             
         elif opcao == "3":
-            atualizar_produto()
+            atualizar_produto(conn)
             
         elif opcao == "4":
-            deletar_produto()
+            deletar_produto(conn)
             
         elif opcao == "5":
             nome = input("\nNome do produto a buscar: ").strip()
             if nome:  # Verifica se não está vazio
-                buscar_produto_por_nome(nome)
+                buscar_produto_por_nome(conn, nome)
             else:
                 print("Por favor, digite um nome para busca.")
                 
