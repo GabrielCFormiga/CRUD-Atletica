@@ -43,7 +43,7 @@ A management system for university athletic organizations featuring customer reg
 
 ## Contributors
 
-| [**Gabriel Campelo Formiga**](https://www.linkedin.com/in/gabrielcformiga/) |
-|:------------------------------------------------------------------:|
-| <img src="https://avatars.githubusercontent.com/u/130695548?v=4" width="200px"> |
-| [GitHub: GabrielCFormiga](https://github.com/GabrielCFormiga) |
+| [**Gabriel Campelo Formiga**](https://www.linkedin.com/in/gabrielcformiga/) | [**Mateus Freitas Correia**](https://www.linkedin.com/in/mateus-freitas-correia/) |
+|:------------------------------------------------------------------:|:------------------------------------------------------------------:|
+| <img src="https://avatars.githubusercontent.com/u/130695548?v=4" width="200px"> | <img src="https://avatars.githubusercontent.com/u/83030060?v=4" width="200px"> |
+| [GitHub: GabrielCFormiga](https://github.com/GabrielCFormiga) | [GitHub: MateusFreitas-C ](https://github.com/MateusFreitas-C) |

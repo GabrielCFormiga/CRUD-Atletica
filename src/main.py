@@ -3,8 +3,10 @@ from psycopg2 import Error
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from relatorio import menu_relatorios
-from venda import menu_vendas
+import relatorio
+import venda
+import clientes
+import produtos
 
 ############################################################################################################
 # MAIN
@@ -27,13 +29,13 @@ def main():
             opcao = input("\nEscolha uma opção: ")
             
             if opcao == "1":
-                menu_clientes()
+                clientes.menu_clientes(conn)
             elif opcao == "2":
-                menu_produtos()
+                produtos.menu_produtos(conn)
             elif opcao == "3":
-                menu_vendas(conn)
+                venda.menu_vendas(conn)
             elif opcao == "4":
-                menu_relatorios(conn)
+                relatorio.menu_relatorios(conn)
             elif opcao == "5":
                 print("Saindo do sistema...")
                 desconecta(conn)

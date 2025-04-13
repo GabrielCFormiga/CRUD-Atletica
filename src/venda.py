@@ -1,6 +1,9 @@
 from psycopg2 import Error
 from decimal import Decimal
 from datetime import datetime, timedelta
+
+from clientes import buscar_cliente_por_matricula
+from produtos import buscar_produto_por_id, listar_produtos, validar_quantidade
 ############################################################################################################
 # MÉTODOS DE VALIDAÇÃO DE VENDAS
 ############################################################################################################
