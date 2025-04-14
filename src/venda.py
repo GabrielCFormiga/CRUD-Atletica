@@ -87,6 +87,22 @@ def verificar_estoque_suficiente(conn, id_produto, quantidade):
         if cursor:
             cursor.close()
 
+def verificar_desconto(conn, matricula):
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT tem_desconto_especial(%s);", (matricula,))
+        resultado = cursor.fetchone()[0]
+        if resultado:
+            print("Cliente tem direito ao desconto especial!")
+        else:
+            print("Cliente não tem direito ao desconto especial.")
+        return resultado
+    except Exception as e:
+        print(f"Erro ao verificar desconto: {e}")
+        return None
+    finally:
+        if cursor:
+            cursor.close()
 ############################################################################################################
 # MÉTODOS CRUD
 ############################################################################################################
@@ -111,7 +127,7 @@ def registrar_venda(conn):
     while True:
         matricula = input("Matrícula do cliente: ").strip()
         cliente = buscar_cliente_por_matricula(conn, matricula)
-        
+        desconto = verificar_desconto(conn, matricula)
         if not cliente:
             print("Cliente não encontrado!")
             continuar = input("Deseja tentar novamente? (S/N): ").upper()
@@ -212,7 +228,7 @@ def registrar_venda(conn):
     
     # Cálculo do valor total (usando Decimal para todas operações)
     valor_total = sum(Decimal(item['quantidade']) * item['preco_unitario'] for item in itens)
-    
+
     # Resumo da venda
     print("\n--- Resumo da Venda ---")
     print(f"Cliente: {cliente[1]}")
@@ -232,6 +248,13 @@ def registrar_venda(conn):
         print(f"Desconto (sócio): -R${desconto:.2f}")
         print(f"Total com desconto: R${valor_total:.2f}")
     
+    #Aplica desconto se torcer pro Flamengo, a cidade for Sousa ou assistir One Piece
+    if(desconto):
+        desconto = valor_total * Decimal('0.05')
+        valor_total -= desconto
+        print(f"Desconto adicional: -R${desconto:.2f}")
+        print(f"Total com desconto adicional: R${valor_total:.2f}")
+
     # Confirmação
     confirmacao = input("\nConfirmar venda? (S/N): ").upper()
     if confirmacao != 'S':
