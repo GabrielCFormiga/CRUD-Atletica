@@ -4,6 +4,13 @@ from datetime import datetime, timedelta
 
 from clientes import buscar_cliente_por_matricula
 from produtos import buscar_produto_por_id, listar_produtos, validar_quantidade
+from vendedores import buscar_vendedor_por_matricula
+
+STATUS_VENDA = {
+    'PENDENTE': 'Pendente de autorização',
+    'AUTORIZADA': 'Autorizada',
+    'CANCELADA': 'Cancelada'
+}
 
 ############################################################################################################
 # MÉTODOS DE VALIDAÇÃO
@@ -123,6 +130,28 @@ def registrar_venda(conn):
             continue
         break
     
+    # Seleção do vendedor
+    while True:
+        matricula_vendedor = input("Matrícula do vendedor: ").strip()
+        vendedor = buscar_vendedor_por_matricula(conn, matricula_vendedor)
+        
+        if not vendedor:
+            print("Vendedor não encontrado!")
+            continuar = input("Deseja tentar novamente? (S/N): ").upper()
+            if continuar != 'S':
+                return None
+            continue
+            
+        if not vendedor[4]:  # Verifica se vendedor está ativo (campo ativo)
+            print("Vendedor inativo! Não pode realizar vendas.")
+            continuar = input("Deseja tentar outro vendedor? (S/N): ").upper()
+            if continuar != 'S':
+                return None
+            continue
+            
+        print(f"Vendedor: {vendedor[1]}")
+        break
+    
     # Cadastro dos itens da venda
     itens = []
     while True:
@@ -213,12 +242,18 @@ def registrar_venda(conn):
     try:
         cursor = conn.cursor()
         
-        # Insere a venda (convertendo para float para o PostgreSQL)
+        # Insere a venda com status PENDENTE
         cursor.execute("""
-            INSERT INTO vendas (cliente_matricula, valor_total, forma_pagamento)
-            VALUES (%s, %s, %s) RETURNING id
+            INSERT INTO vendas (cliente_matricula, valor_total, forma_pagamento, status)
+            VALUES (%s, %s, %s, 'PENDENTE') RETURNING id
         """, (matricula, float(valor_total), forma_pagamento))
         venda_id = cursor.fetchone()[0]
+        
+        # Registra a relação vendedor-venda
+        cursor.execute("""
+            INSERT INTO vendedor_vendas (vendedor_matricula, id_venda)
+            VALUES (%s, %s)
+        """, (matricula_vendedor, venda_id))
         
         # Insere os itens da venda e atualiza estoque
         for item in itens:
@@ -235,6 +270,7 @@ def registrar_venda(conn):
         
         conn.commit()
         print(f"\nVenda registrada com sucesso! ID: {venda_id}")
+        print("Status: Pendente de autorização")
         return venda_id
         
     except Error as e:
@@ -261,9 +297,11 @@ def listar_vendas(conn):
         
         if opcao == "1":
             query = """
-                SELECT v.id, c.nome, v.valor_total, v.data_venda, v.forma_pagamento
+                SELECT v.id, c.nome, v.valor_total, v.data_venda, v.forma_pagamento, v.status, ve.nome as vendedor
                 FROM vendas v
-                JOIN clientes c ON v.cliente_matricula = c.matricula
+                LEFT JOIN clientes c ON v.cliente_matricula = c.matricula
+                LEFT JOIN vendedor_vendas vv ON v.id = vv.id_venda
+                LEFT JOIN vendedores ve ON vv.vendedor_matricula = ve.matricula
                 ORDER BY v.data_venda DESC
                 LIMIT 1000
             """
@@ -290,9 +328,11 @@ def listar_vendas(conn):
                         continue
                         
                     query = """
-                        SELECT v.id, c.nome, v.valor_total, v.data_venda, v.forma_pagamento
+                        SELECT v.id, c.nome, v.valor_total, v.data_venda, v.forma_pagamento, v.status, ve.nome as vendedor
                         FROM vendas v
-                        JOIN clientes c ON v.cliente_matricula = c.matricula
+                        LEFT JOIN clientes c ON v.cliente_matricula = c.matricula
+                        LEFT JOIN vendedor_vendas vv ON v.id = vv.id_venda
+                        LEFT JOIN vendedores ve ON vv.vendedor_matricula = ve.matricula
                         WHERE v.data_venda BETWEEN %s AND %s
                         ORDER BY v.data_venda DESC
                     """
@@ -318,9 +358,11 @@ def listar_vendas(conn):
                     continue
                     
                 query = """
-                    SELECT v.id, c.nome, v.valor_total, v.data_venda, v.forma_pagamento
+                    SELECT v.id, c.nome, v.valor_total, v.data_venda, v.forma_pagamento, v.status, ve.nome as vendedor
                     FROM vendas v
-                    JOIN clientes c ON v.cliente_matricula = c.matricula
+                    LEFT JOIN clientes c ON v.cliente_matricula = c.matricula
+                    LEFT JOIN vendedor_vendas vv ON v.id = vv.id_venda
+                    LEFT JOIN vendedores ve ON vv.vendedor_matricula = ve.matricula
                     WHERE c.nome ILIKE %s
                     ORDER BY v.data_venda DESC
                     LIMIT 200
@@ -361,9 +403,11 @@ def listar_vendas(conn):
                 print("\n" + "-" * 50)
                 print(f"ID Venda: {venda[0]}")
                 print(f"Cliente: {venda[1]}")
+                print(f"Vendedor: {venda[6]}")
                 print(f"Valor Total: R${venda[2]:.2f}")
                 print(f"Data/Hora: {venda[3].strftime('%d/%m/%Y %H:%M')}")
                 print(f"Forma Pagamento: {venda[4]}")
+                print(f"Status: {STATUS_VENDA.get(venda[5], venda[5])}")
             
             print("\n" + "-" * 50)
             
@@ -439,6 +483,75 @@ def detalhar_venda(conn, venda_id):
         if cursor:
             cursor.close()
 
+def autorizar_venda(conn):
+    print("\n--- Autorização de Venda ---")
+    
+    while True:
+        venda_id = input("ID da venda a autorizar: ").strip()
+        if not venda_id.isdigit():
+            print("ID inválido! Deve ser um número.")
+            continue
+            
+        try:
+            cursor = conn.cursor()
+            
+            # Busca a venda e verifica se está pendente
+            cursor.execute("""
+                SELECT id, status FROM vendas 
+                WHERE id = %s
+            """, (venda_id,))
+            venda = cursor.fetchone()
+            
+            if not venda:
+                print("Venda não encontrada!")
+                continue
+                
+            if venda[1] != 'PENDENTE':
+                print(f"Esta venda já está {STATUS_VENDA.get(venda[1], venda[1])}")
+                continue
+                
+            # Busca o vendedor responsável
+            cursor.execute("""
+                SELECT v.nome FROM vendedor_vendas vv
+                JOIN vendedores v ON vv.vendedor_matricula = v.matricula
+                WHERE vv.id_venda = %s
+            """, (venda_id,))
+            vendedor = cursor.fetchone()
+            
+            print(f"\nVenda ID: {venda[0]}")
+            print(f"Vendedor: {vendedor[0] if vendedor else 'Não informado'}")
+            
+            confirmacao = input("\nConfirmar autorização desta venda? (S/N): ").upper()
+            if confirmacao != 'S':
+                print("Operação cancelada!")
+                return
+                
+            # Atualiza o status da venda
+            cursor.execute("""
+                UPDATE vendas 
+                SET status = 'AUTORIZADA' 
+                WHERE id = %s
+            """, (venda_id,))
+            
+            # Registra data de autorização
+            cursor.execute("""
+                UPDATE vendedor_vendas
+                SET data_autorizacao = CURRENT_TIMESTAMP
+                WHERE id_venda = %s
+            """, (venda_id,))
+            
+            conn.commit()
+            print("\nVenda autorizada com sucesso!")
+            return
+            
+        except Error as e:
+            conn.rollback()
+            print(f"\nErro ao autorizar venda: {e}")
+            return
+        finally:
+            if cursor:
+                cursor.close()
+
 ############################################################################################################
 # MÉTODOS DE MENU
 ############################################################################################################
@@ -449,28 +562,21 @@ def menu_vendas(conn):
         print("1. Registrar nova venda")
         print("2. Listar vendas")
         print("3. Detalhar venda")
-        print("4. Voltar ao menu principal")
+        print("4. Autorizar venda pendente")
+        print("5. Voltar ao menu principal")
         
         opcao = input("\nEscolha uma opção: ")
         
         if opcao == "1":
             registrar_venda(conn)
-            
         elif opcao == "2":
             listar_vendas(conn)
-            
         elif opcao == "3":
-            while True:
-                venda_id = input("\nID da venda para detalhar: ").strip()
-                if not venda_id.isdigit():
-                    print("ID inválido! Deve ser um número.")
-                    continue
-                
-                detalhar_venda(conn, venda_id)
-                break
-            
+            venda_id = input("\nID da venda para detalhar: ").strip()
+            detalhar_venda(conn, venda_id)
         elif opcao == "4":
+            autorizar_venda(conn)
+        elif opcao == "5":
             break
-            
         else:
             print("Opção inválida. Tente novamente.")
