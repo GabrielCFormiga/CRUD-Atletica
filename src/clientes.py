@@ -6,88 +6,80 @@ from psycopg2 import Error
 
 def validar_matricula(matricula):
     """
-    Valida se a matrícula é válida.
-    
     Critérios:
     - Contém apenas dígitos.
     - Tamanho entre 6 e 20 caracteres.
-    
-    Args:
-        matricula (str): Número de matrícula a ser validado.
-    
-    Returns:
-        bool: True se a matrícula for válida, False caso contrário.
     """
+    matricula = matricula.strip()
     return matricula.isdigit() and 6 <= len(matricula) <= 20
 
 def validar_nome(nome):
     """
-    Valida se o nome é válido.
-    
     Critérios:
     - Contém apenas letras e espaços.
     - Tamanho mínimo de 3 caracteres.
-    
-    Args:
-        nome (str): Nome a ser validado.
-    
-    Returns:
-        bool: True se o nome for válido, False caso contrário.
     """
     return all(c.isalpha() or c.isspace() for c in nome) and len(nome) >= 3
 
 def validar_email(email):
     """
-    Valida se o email é válido.
-    
     Critérios:
     - Contém o caractere '@'.
     - Contém um '.' após o '@'.
     - Tamanho mínimo de 5 caracteres.
-    
-    Args:
-        email (str): Email a ser validado.
-    
-    Returns:
-        bool: True se o email for válido, False caso contrário.
     """
     return '@' in email and '.' in email.split('@')[-1] and len(email) >= 5
 
 def validar_telefone(telefone):
     """
-    Valida se o telefone é válido.
-    
     Critérios:
-    - Aceita apenas números no formato (XX) XXXXX-XXXX ou similar.
+    - Aceita números no formato (XX) XXXXX-XXXX ou similar.
     - Tamanho entre 10 e 11 dígitos após remover caracteres não numéricos.
-    
-    Args:
-        telefone (str): Telefone a ser validado.
-    
-    Returns:
-        bool: True se o telefone for válido, False caso contrário.
     """
     telefone = ''.join(filter(str.isdigit, telefone))
     return 10 <= len(telefone) <= 11
+
+def validar_time(time):
+    """
+    Critérios:
+    - Deve conter apenas letras, espaços e caracteres comuns em nomes de times
+    - Tamanho entre 2 e 50 caracteres
+    - Não pode ser composto apenas por espaços
+    """
+    if not time or len(time.strip()) < 2 or len(time) > 50:
+        return False
+    
+    caracteres_permitidos = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ áéíóúâêîôûãõçÁÉÍÓÚÂÊÎÔÛÃÕÇ-'0123456789")
+    return all(c in caracteres_permitidos for c in time) and not time.isspace()
+
+def validar_cidade(cidade):
+    """
+    Critérios:
+    - Deve conter apenas letras, espaços e hífens
+    - Tamanho entre 2 e 50 caracteres
+    - Não pode ser composto apenas por espaços
+    - Deve ter pelo menos uma letra
+    """
+    if not cidade or len(cidade.strip()) < 2 or len(cidade) > 50:
+        return False
+    
+    caracteres_permitidos = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ áéíóúâêîôûãõçÁÉÍÓÚÂÊÎÔÛÃÕÇ-")
+    return (all(c in caracteres_permitidos for c in cidade) and 
+            not cidade.isspace() and
+            any(c.isalpha() for c in cidade))
 
 ############################################################################################################
 # MÉTODOS DE BUSCA
 ############################################################################################################
 
 def buscar_cliente_por_matricula(conn, matricula):
-    """
-    Busca um cliente pelo número de matrícula no banco de dados.
-    
-    Args:
-        matricula (str): Número de matrícula do cliente.
-    
-    Returns:
-        tuple or None: Dados do cliente se encontrado, ou None se não encontrado ou em caso de erro.
-    """
-    
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM clientes WHERE matricula = %s", (matricula,))
+        cursor.execute("""
+            SELECT matricula, nome, email, telefone, eh_socio, time, cidade, assiste_op 
+            FROM clientes 
+            WHERE matricula = %s
+        """, (matricula,))
         cliente = cursor.fetchone()
         return cliente
     except Error as e:
@@ -98,50 +90,48 @@ def buscar_cliente_por_matricula(conn, matricula):
             cursor.close()
 
 def buscar_cliente_por_nome(conn, nome):
-    """
-    Busca clientes pelo nome no banco de dados.
-    
-    Args:
-        nome (str): Nome ou parte do nome do cliente a ser buscado.
-    
-    Returns:
-        None
-    """
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM clientes WHERE nome ILIKE %s ORDER BY nome", (f"%{nome}%",))
+        cursor.execute("""
+            SELECT matricula, nome, email, telefone, eh_socio, time, cidade, assiste_op 
+            FROM clientes 
+            WHERE nome ILIKE %s 
+            ORDER BY nome
+        """, (f"%{nome}%",))
         clientes = cursor.fetchall()
         
         if clientes:
-            print("\n--- Resultados da Busca ---")
+            print("\n╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮")
+            print(f"│ {'Matrícula':<12} │ {'Nome':<25} │ {'Email':<25} │ {'Telefone':<15} │ {'Status':<9} │ {'Time':<15} │ {'OP Fan':<7} │")
+            print("├──────────────┼───────────────────────────┼───────────────────────────┼─────────────────┼───────────┼─────────────────┼─────────┤")
+            
             for cliente in clientes:
-                matricula, nome, email, telefone, eh_socio = cliente
+                matricula, nome, email, telefone, eh_socio, time, cidade, assiste_op = cliente
                 status = "Sócio" if eh_socio else "Não-sócio"
-                print(f"Matrícula: {matricula} | Nome: {nome} | Email: {email} | Tel: {telefone} | Status: {status}")
+                op_fan = "Sim" if assiste_op else "Não"
+                print(f"│ {matricula:<12} │ {nome[:25]:<25} │ {email[:25]:<25} │ {telefone:<15} │ {status:<9} │ {time[:15]:<15} │ {op_fan:<7} │")
+            
+            print("╰──────────────┴───────────────────────────┴───────────────────────────┴─────────────────┴───────────┴─────────────────┴─────────╯")
+            print(f"\nTotal encontrado: {len(clientes)} cliente(s)")
         else:
-            print("Nenhum cliente encontrado com esse nome.")
+            print("\nNenhum cliente encontrado com esse nome.")
             
     except Error as e:
         print(f"Erro ao buscar cliente: {e}")
     finally:
         if cursor:
             cursor.close()
-
+            
 ############################################################################################################
 # MÉTODOS DE CRUD
 ############################################################################################################
 
 def criar_cliente(conn):
-    """
-    Cadastra um novo cliente com validação de dados e campos adicionais.
-    
+    """ 
     Fluxo:
     - Solicita matrícula, nome, email, telefone, status de sócio, time, cidade, e se assiste One Piece.
     - Valida os dados fornecidos.
     - Insere o cliente no banco de dados.
-    
-    Returns:
-        None
     """
     print("\n--- Cadastro de Cliente ---")
     
@@ -203,10 +193,22 @@ def criar_cliente(conn):
         break
 
     # Time do coração
-    time = input("Time do coração: ").strip()
+    while True:
+        time = input("Time do coração: ").strip()
+        time = time.title().strip()
+        if not validar_time(time):
+            print("Time inválido! Deve conter 2 a 50 caracteres (apenas letras, espaços e caracteres comuns).")
+            continue
+        break
 
     # Cidade
-    cidade = input("Cidade onde nasceu: ").strip()
+    while True:
+        cidade = input("Cidade onde nasceu: ").strip()
+        cidade = cidade.title().strip()
+        if not validar_cidade(cidade):
+            print("Cidade inválida! Deve conter 2 a 50 caracteres (apenas letras, espaços e hífens).")
+            continue
+        break
 
     # Assiste One Piece?
     while True:
@@ -246,28 +248,31 @@ def criar_cliente(conn):
             cursor.close()
 
 def listar_clientes(conn):
-    """
-    Lista todos os clientes cadastrados no banco de dados.
-    
-    Fluxo:
-    - Recupera os dados de todos os clientes.
-    - Exibe os dados formatados no console.
-    
-    Returns:
-        None
-    """
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM clientes ORDER BY nome")
+        cursor.execute("""
+            SELECT matricula, nome, email, telefone, eh_socio, time, cidade, assiste_op 
+            FROM clientes 
+            ORDER BY nome
+        """)
         clientes = cursor.fetchall()
         
-        print("\n--- Lista de Clientes ---")
-        for cliente in clientes:
-            matricula, nome, email, telefone, eh_socio = cliente
-            status = "Sócio" if eh_socio else "Não-sócio"
-            print(f"Matrícula: {matricula} | Nome: {nome} | Email: {email} | Tel: {telefone} | Status: {status}")
-        print(f"Total de clientes: {len(clientes)}")
-        
+        if clientes:
+            print("\n╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮")
+            print(f"│ {'Matrícula':<12} │ {'Nome':<25} │ {'Email':<25} │ {'Telefone':<15} │ {'Status':<9} │ {'Time':<15} │ {'OP Fan':<7} │")
+            print("├──────────────┼───────────────────────────┼───────────────────────────┼─────────────────┼───────────┼─────────────────┼─────────┤")
+            
+            for cliente in clientes:
+                matricula, nome, email, telefone, eh_socio, time, cidade, assiste_op = cliente
+                status = "Sócio" if eh_socio else "Não-sócio"
+                op_fan = "Sim" if assiste_op else "Não"
+                print(f"│ {matricula:<12} │ {nome[:25]:<25} │ {email[:25]:<25} │ {telefone:<15} │ {status:<9} │ {time[:15]:<15} │ {op_fan:<7} │")
+            
+            print("╰──────────────┴───────────────────────────┴───────────────────────────┴─────────────────┴───────────┴─────────────────┴─────────╯")
+            print(f"\nTotal de clientes cadastrados: {len(clientes)}")
+        else:
+            print("\nNenhum cliente cadastrado no sistema.")
+
     except Error as e:
         print(f"Erro ao listar clientes: {e}")
     finally:
@@ -276,20 +281,15 @@ def listar_clientes(conn):
 
 def atualizar_cliente(conn):
     """
-    Atualiza os dados de um cliente existente.
-    
     Fluxo:
     - Solicita a matrícula do cliente.
     - Exibe os dados atuais do cliente.
     - Permite a atualização de nome, email, telefone e status de sócio.
     - Atualiza os dados no banco de dados.
-    
-    Returns:
-        None
     """
     print("\n--- Atualização de Cliente ---")
     
-    # Busca pelo cliente
+    # Busca por matrícula
     matricula = input("Digite a matrícula do cliente: ").strip()
     cliente = buscar_cliente_por_matricula(conn, matricula)
     
@@ -304,8 +304,10 @@ def atualizar_cliente(conn):
     print(f"Email: {cliente[2]}")
     print(f"Telefone: {cliente[3]}")
     print(f"Status: {'Sócio' if cliente[4] else 'Não-sócio'}")
+    print(f"Time: {cliente[5]}")
+    print(f"Cidade: {cliente[6]}")
+    print(f"Assiste One Piece: {'Sim' if cliente[7] else 'Não'}")
     
-    # Atualização dos campos
     print("\nDeixe em branco para manter o valor atual")
     
     # Nome
@@ -362,6 +364,33 @@ def atualizar_cliente(conn):
         if novo_status in ('S', 'N'):
             break
         print("Opção inválida! Digite S para Sim ou N para Não.")
+
+    # Time
+    while True:
+        novo_time = input(f"\nNovo time [{cliente[5]}]: ").strip() or cliente[5]
+        novo_time = novo_time.title().strip()
+        if not validar_time(novo_time):
+            print("Time inválido! Deve conter 2 a 50 caracteres (apenas letras, espaços e caracteres comuns).")
+            continue
+        break
+
+    # Cidade
+    while True:
+        nova_cidade = input(f"\nNova cidade [{cliente[6]}]: ").strip() or cliente[6]
+        nova_cidade = nova_cidade.title().strip()
+        if not validar_cidade(nova_cidade):
+            print("Cidade inválida! Deve conter 2 a 50 caracteres (apenas letras, espaços e hífens).")
+            continue
+        break
+
+    while True:
+        novo_op = input(f"\nAssiste One Piece? [{'S' if cliente[7] else 'N'}] (S/N): ").upper().strip()
+        if not novo_op:
+            novo_op = 'S' if cliente[7] else 'N'
+            break
+        if novo_op in ('S', 'N'):
+            break
+        print("Opção inválida! Digite S para Sim ou N para Não.")
     
     # Confirmação
     print("\nDados a serem atualizados:")
@@ -380,9 +409,11 @@ def atualizar_cliente(conn):
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE clientes
-            SET nome = %s, email = %s, telefone = %s, eh_socio = %s
+            SET nome = %s, email = %s, telefone = %s, eh_socio = %s,
+                time = %s, cidade = %s, assiste_op = %s
             WHERE matricula = %s
-        """, (novo_nome, novo_email, novo_telefone, novo_status == 'S', matricula))
+        """, (novo_nome, novo_email, novo_telefone, novo_status == 'S',
+              novo_time, nova_cidade, novo_op == 'S', matricula))
         conn.commit()
         print("\nCliente atualizado com sucesso!")
     except Error as e:
@@ -393,22 +424,56 @@ def atualizar_cliente(conn):
             cursor.close()
 
 def deletar_cliente(conn, matricula):
-    """
-    Remove um cliente do banco de dados.
-    
-    Args:
-        matricula (str): Matrícula do cliente a ser removido.
-    
-    Returns:
-        None
-    """
     try:
         cursor = conn.cursor()
+        
+        # Verifica se o cliente possui vendas associadas
+        cursor.execute("""
+            SELECT 1 FROM vendas 
+            WHERE cliente_matricula = %s 
+            LIMIT 1
+        """, (matricula,))
+        
+        if cursor.fetchone():
+            print("\nEste cliente possui vendas associadas e não pode ser removido!")
+            print("Opções:")
+            print("1. Cancelar a operação")
+            print("2. Ver as vendas do cliente")
+            
+            opcao = input("\nEscolha uma opção: ").strip()
+            if opcao == "2":
+                # Mostra as vendas do cliente
+                cursor.execute("""
+                    SELECT v.id, v.data_venda, v.valor_total, v.status
+                    FROM vendas v
+                    WHERE v.cliente_matricula = %s
+                    ORDER BY v.data_venda DESC
+                """, (matricula,))
+                vendas = cursor.fetchall()
+                
+                print("\n╭───────────────────────────── Vendas do Cliente ──────────────────────────────╮")
+                print(f"│ {'ID':<6} │ {'Data':<19} │ {'Valor Total':<12} │ {'Status':<12} │")
+                print("├───────┼─────────────────────┼──────────────┼──────────────┤")
+                
+                for venda in vendas:
+                    print(f"│ {venda[0]:<6} │ {venda[1].strftime('%d/%m/%Y %H:%M'):<19} │ R${venda[2]:<10.2f} │ {venda[3]:<12} │")
+                
+                print("╰───────┴─────────────────────┴──────────────┴──────────────╯")
+            
+            return
+        
+        # Se não houver vendas, prossegue com a exclusão
         cursor.execute("DELETE FROM clientes WHERE matricula = %s", (matricula,))
-        conn.commit()
-        print("Cliente deletado com sucesso!")
+        
+        if cursor.rowcount > 0:
+            conn.commit()
+            print("\nCliente removido com sucesso!")
+        else:
+            print("\nNenhum cliente encontrado com essa matrícula!")
+            
     except Error as e:
-        print(f"Erro ao deletar cliente: {e}")
+        conn.rollback()
+        print(f"\nErro ao remover cliente: {e}")
     finally:
         if cursor:
             cursor.close()
