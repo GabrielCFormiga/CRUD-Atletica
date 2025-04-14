@@ -398,6 +398,8 @@ def atualizar_cliente(conn):
     print(f"Email: {novo_email}")
     print(f"Telefone: {novo_telefone}")
     print(f"Status: {'Sócio' if novo_status == 'S' else 'Não-sócio'}")
+    print(f"Time: {novo_time}")
+    print(f"Cidade: {nova_cidade}")
     
     confirmacao = input("\nConfirmar atualização? (S/N): ").upper()
     if confirmacao != 'S':
