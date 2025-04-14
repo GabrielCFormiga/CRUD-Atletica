@@ -6,66 +6,35 @@ from psycopg2 import Error
 
 def validar_matricula(matricula):
     """
-    Valida se a matrícula é válida.
-    
     Critérios:
     - Contém apenas dígitos.
     - Tamanho entre 6 e 20 caracteres.
-    
-    Args:
-        matricula (str): Número de matrícula a ser validado.
-    
-    Returns:
-        bool: True se a matrícula for válida, False caso contrário.
     """
+    matricula = matricula.strip()
     return matricula.isdigit() and 6 <= len(matricula) <= 20
 
 def validar_nome(nome):
     """
-    Valida se o nome é válido.
-    
     Critérios:
     - Contém apenas letras e espaços.
     - Tamanho mínimo de 3 caracteres.
-    
-    Args:
-        nome (str): Nome a ser validado.
-    
-    Returns:
-        bool: True se o nome for válido, False caso contrário.
     """
     return all(c.isalpha() or c.isspace() for c in nome) and len(nome) >= 3
 
 def validar_email(email):
     """
-    Valida se o email é válido.
-    
     Critérios:
     - Contém o caractere '@'.
     - Contém um '.' após o '@'.
     - Tamanho mínimo de 5 caracteres.
-    
-    Args:
-        email (str): Email a ser validado.
-    
-    Returns:
-        bool: True se o email for válido, False caso contrário.
     """
     return '@' in email and '.' in email.split('@')[-1] and len(email) >= 5
 
 def validar_telefone(telefone):
     """
-    Valida se o telefone é válido.
-    
     Critérios:
-    - Aceita apenas números no formato (XX) XXXXX-XXXX ou similar.
+    - Aceita números no formato (XX) XXXXX-XXXX ou similar.
     - Tamanho entre 10 e 11 dígitos após remover caracteres não numéricos.
-    
-    Args:
-        telefone (str): Telefone a ser validado.
-    
-    Returns:
-        bool: True se o telefone for válido, False caso contrário.
     """
     telefone = ''.join(filter(str.isdigit, telefone))
     return 10 <= len(telefone) <= 11
