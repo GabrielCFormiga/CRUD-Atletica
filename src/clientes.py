@@ -133,10 +133,10 @@ def buscar_cliente_por_nome(conn, nome):
 
 def criar_cliente(conn):
     """
-    Cadastra um novo cliente com validação de dados.
+    Cadastra um novo cliente com validação de dados e campos adicionais.
     
     Fluxo:
-    - Solicita matrícula, nome, email, telefone e status de sócio.
+    - Solicita matrícula, nome, email, telefone, status de sócio, time, cidade, e se assiste One Piece.
     - Valida os dados fornecidos.
     - Insere o cliente no banco de dados.
     
@@ -201,18 +201,33 @@ def criar_cliente(conn):
             print("Opção inválida! Digite S para Sim ou N para Não.")
             continue
         break
-    
+
+    # Time do coração
+    time = input("Time do coração: ").strip()
+
+    # Cidade
+    cidade = input("Cidade onde nasceu: ").strip()
+
+    # Assiste One Piece?
+    while True:
+        assiste_op = input("Assiste One Piece? (S/N): ").upper()
+        if assiste_op not in ('S', 'N'):
+            print("Opção inválida! Digite S para Sim ou N para Não.")
+            continue
+        break
+
     # Formata os dados antes de inserir
     telefone = ''.join(filter(str.isdigit, telefone))
     eh_socio = eh_socio == 'S'
+    assiste_op = assiste_op == 'S'
     
     # Conexão com o banco para inserção    
     try:
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO clientes (matricula, nome, email, telefone, eh_socio)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (matricula, nome, email, telefone, eh_socio))
+            INSERT INTO clientes (matricula, nome, email, telefone, eh_socio, time, cidade, assiste_op)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (matricula, nome, email, telefone, eh_socio, time, cidade, assiste_op))
         conn.commit()
         print("\nCliente cadastrado com sucesso!")
         print(f"Matrícula: {matricula}")
@@ -220,6 +235,9 @@ def criar_cliente(conn):
         print(f"Email: {email}")
         print(f"Telefone: {telefone}")
         print(f"Status: {'Sócio' if eh_socio else 'Não-sócio'}")
+        print(f"Time: {time}")
+        print(f"Cidade: {cidade}")
+        print(f"Assiste One Piece: {'Sim' if assiste_op else 'Não'}")
     except Error as e:
         conn.rollback()
         print(f"\nErro ao cadastrar cliente: {e}")
