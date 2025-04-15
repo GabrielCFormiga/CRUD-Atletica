@@ -68,7 +68,7 @@ def relatorio_estoque_baixo(conn, limite=5):
     Fluxo:
     1. Valida parâmetro de limite
     2. Conecta ao banco
-    3. Executa query com filtro
+    3. Executa VIEW do banco
     4. Exibe resultados formatados
     """
     # Validação do parâmetro
@@ -83,57 +83,39 @@ def relatorio_estoque_baixo(conn, limite=5):
     
     try:
         cursor = conn.cursor()
-        
-        # Query com ordenação por prioridade (estoque mais baixo primeiro)
-        cursor.execute("""
-            SELECT p.id, p.nome, p.quantidade, p.preco,
-                   ROUND(p.preco * p.quantidade, 2) AS valor_total_estoque
-            FROM produtos p
-            WHERE p.quantidade < %s
-            ORDER BY p.quantidade ASC, p.nome ASC
-        """, (limite,))
-        
+
+        # Consulta os produtos com estoque baixo pela VIEW
+        cursor.execute("SELECT * FROM vw_estoque_baixo_padrao")
         produtos = cursor.fetchall()
-        
-        # Cabeçalho do relatório
-        print(f"\n=== RELATÓRIO DE ESTOQUE BAIXO (< {limite} unidades) ===")
-        
+
+        # Cabeçalho
+        print(f"\n=== RELATÓRIO DE ESTOQUE BAIXO ===")
+
         if not produtos:
-            print("\nNenhum produto com estoque abaixo do limite.")
+            print("\nNenhum produto com estoque abaixo de 5 unidades.")
             return
-        
-        # Dados estatísticos
-        cursor.execute("""
-            SELECT 
-                COUNT(*) AS total_produtos,
-                SUM(quantidade) AS total_unidades,
-                ROUND(AVG(quantidade), 2) AS media_estoque,
-                MIN(quantidade) AS menor_estoque
-            FROM produtos
-            WHERE quantidade < %s
-        """, (limite,))
-        
+
+        # Consulta estatísticas via VIEW
+        cursor.execute("SELECT * FROM vw_estoque_baixo_stats")
         stats = cursor.fetchone()
-        
-        # Exibe estatísticas
+
         print(f"\nTotal de produtos: {stats[0]}")
         print(f"Total de unidades em estoque: {stats[1]}")
         print(f"Média de estoque: {stats[2]} unidades")
         print(f"Menor estoque: {stats[3]} unidades")
-        
-        # Tabela de produtos
+
         print("\nDetalhamento por produto:")
         print("\n" + "=" * 80)
         print(f"{'ID':<5} | {'Nome':<30} | {'Estoque':<10} | {'Preço Unit.':<12} | {'Valor Total':<12}")
         print("-" * 80)
-        
+
         for produto in produtos:
-            alerta = "(!)" if produto[2] < 2 else ""  # Alerta para estoque muito baixo
+            alerta = "(!)" if produto[2] < 2 else ""
             print(f"{produto[0]:<5} | {produto[1][:30]:<30} | {produto[2]:<10}{alerta} | R$ {produto[3]:<10.2f} | R$ {produto[4]:<10.2f}")
-        
+
         print("=" * 80)
         print("(!) - Estoque muito baixo (menos de 2 unidades)")
-        
+
     except Error as e:
         print(f"\nErro ao gerar relatório: {str(e)}")
     finally:
