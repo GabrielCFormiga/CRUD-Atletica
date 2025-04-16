@@ -2,6 +2,7 @@ from database import conecta, desconecta
 from psycopg2 import Error
 from datetime import datetime, timedelta
 from decimal import Decimal
+import os
 
 import relatorio
 import venda
@@ -20,6 +21,8 @@ def main():
     conn = conecta()
     if conn is not None:
         while True:
+            os.system('cls' if os.name == 'nt' else 'clear')
+
             print("\n=== SISTEMA DA ATLÉTICA COMPILADA ===")
             print("1. Gerenciar Clientes")
             print("2. Gerenciar Produtos")
@@ -41,11 +44,12 @@ def main():
             elif opcao == "5":
                 relatorio.menu_relatorios(conn)
             elif opcao == "6":
-                print("Saindo do sistema...")
+                print("\nSaindo do sistema...")
                 desconecta(conn)
                 break
             else:
-                print("Opção inválida. Tente novamente.")
+                print("\nOpção inválida. Tente novamente.")
+                input("\nPressione Enter para continuar...")
     return None
 
 if __name__ == "__main__":

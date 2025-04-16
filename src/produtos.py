@@ -1,4 +1,5 @@
 from psycopg2 import Error
+import os
 
 CATEGORIAS = ['Vestuário', 'Acessórios', 'Ingressos', 'Geral']
 
@@ -20,7 +21,7 @@ def validar_quantidade(quantidade):
     - Quantidade é um inteiro positivo.
     """
     try:
-        return int(quantidade) >= 0
+        return int(quantidade) > 0
     except ValueError:
         return False
 
@@ -69,7 +70,7 @@ def buscar_produto_por_id(conn, id_produto):
         produto = cursor.fetchone()
         if produto:
             return produto
-        print("Produto não encontrado!")
+        # print("Produto não encontrado!")
         return None
     finally:
         if cursor:
@@ -449,7 +450,7 @@ def atualizar_produto(conn):
     
     confirmacao = input("\nConfirmar atualização? (S/N): ").upper()
     if confirmacao != 'S':
-        print("Atualização cancelada!")
+        print("\nAtualização cancelada!")
         return
     
     # Executa a atualização
@@ -548,6 +549,8 @@ def deletar_produto(conn):
 
 def menu_produtos(conn):
     while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
+
         print("\n=== MENU DE PRODUTOS ===")
         print("1. Cadastrar novo produto")
         print("2. Listar todos os produtos")
@@ -561,21 +564,28 @@ def menu_produtos(conn):
         
         if opcao == "1":
             criar_produto(conn)
+            input("\nPressione Enter para continuar...")
         elif opcao == "2":
             listar_produtos(conn)
+            input("\nPressione Enter para continuar...")
         elif opcao == "3":
             atualizar_produto(conn)
+            input("\nPressione Enter para continuar...")
         elif opcao == "4":
             deletar_produto(conn)
+            input("\nPressione Enter para continuar...")
         elif opcao == "5":
             nome = input("\nNome do produto a buscar: ").strip()
             if nome:
                 buscar_produto_por_nome(conn, nome)
             else:
                 print("Por favor, digite um nome para busca.")
+            input("\nPressione Enter para continuar...")
         elif opcao == "6":
             buscar_produtos_filtrados(conn)
+            input("\nPressione Enter para continuar...")
         elif opcao == "7":
             break
         else:
-            print("Opção inválida. Tente novamente.")
+            print("\nOpção inválida. Tente novamente.")
+            input("\nPressione Enter para continuar...")
