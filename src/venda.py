@@ -88,38 +88,43 @@ def verificar_estoque_suficiente(conn, id_produto, quantidade):
             cursor.close()
 
 def verificar_desconto(conn, matricula):
+    """
+    Verifica se o cliente tem direito a desconto especial
+    """
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT tem_desconto_especial(%s);", (matricula,))
-        resultado = cursor.fetchone()[0]
+        cursor.execute("SELECT * FROM verificar_desconto(%s)", (matricula,))
+        resultado = cursor.fetchone()
+        
         if resultado:
-            print("Cliente tem direito ao desconto especial!")
-        else:
-            print("Cliente não tem direito ao desconto especial.")
-        return resultado
-    except Exception as e:
+            return {
+                'tem_desconto': resultado[0],
+                'motivo': resultado[1],
+                'time': resultado[2],
+                'cidade': resultado[3],
+                'assiste_one_piece': resultado[4]
+            }
+        return None
+        
+    except Error as e:
         print(f"Erro ao verificar desconto: {e}")
         return None
     finally:
         if cursor:
             cursor.close()
+
 ############################################################################################################
 # MÉTODOS CRUD
 ############################################################################################################
 
 def registrar_venda(conn):
     """
-    Registra uma nova venda com validação de dados e tratamento correto de tipos numéricos.
-
     Fluxo:
     - Solicita matrícula do cliente e valida.
     - Solicita forma de pagamento e valida.
     - Permite adicionar itens à venda, validando produto e quantidade.
-    - Calcula o total da venda e aplica desconto para sócios.
+    - Calcula o total da venda e aplica desconto.
     - Insere a venda e os itens no banco de dados.
-
-    Returns:
-        int or None: ID da venda registrada, ou None em caso de erro ou cancelamento.
     """
     print("\n--- Registro de Nova Venda ---")
     
@@ -127,7 +132,7 @@ def registrar_venda(conn):
     while True:
         matricula = input("Matrícula do cliente: ").strip()
         cliente = buscar_cliente_por_matricula(conn, matricula)
-        desconto = verificar_desconto(conn, matricula)
+        
         if not cliente:
             print("Cliente não encontrado!")
             continuar = input("Deseja tentar novamente? (S/N): ").upper()
@@ -135,8 +140,16 @@ def registrar_venda(conn):
                 return None
             continue
         
-        print(f"\nCliente: {cliente[1]} ({'Sócio' if cliente[4] else 'Não-sócio'})")
+        print(f"\nCliente: {cliente[1]}")
         break
+
+    # Verificação de desconto
+    desconto_info = verificar_desconto(conn, matricula)
+    if desconto_info:
+        print("\nInformações para desconto:")
+        print(f"Time: {desconto_info['time']}")
+        print(f"Cidade: {desconto_info['cidade']}")
+        print(f"Assiste One Piece: {'Sim' if desconto_info['assiste_one_piece'] else 'Não'}")
     
     # Validação da forma de pagamento
     while True:
@@ -203,7 +216,7 @@ def registrar_venda(conn):
         # Validação da quantidade
         while True:
             quantidade = input("Quantidade: ").strip()
-            if not validar_quantidade(conn, quantidade):
+            if not validar_quantidade(quantidade):
                 print("Quantidade inválida! Deve ser um número inteiro positivo.")
                 continue
             
@@ -241,19 +254,13 @@ def registrar_venda(conn):
     
     print(f"\nTotal da venda: R${valor_total:.2f}")
     
-    # Aplica desconto para sócios (10%) com tratamento correto de tipos
-    if cliente[4]:  # Se for sócio
-        desconto = valor_total * Decimal('0.10')  # Usando Decimal para o fator de multiplicação
+    # Aplicação do desconto especial (se elegível)
+    if desconto_info and desconto_info['tem_desconto']:
+        desconto = valor_total * Decimal('0.10')  # 10% de desconto
         valor_total -= desconto
-        print(f"Desconto (sócio): -R${desconto:.2f}")
+        print(f"\nDESCONTO ESPECIAL APLICADO: -R${desconto:.2f}")
+        print(f"Motivo: {desconto_info['motivo']}")
         print(f"Total com desconto: R${valor_total:.2f}")
-    
-    #Aplica desconto se torcer pro Flamengo, a cidade for Sousa ou assistir One Piece
-    if(desconto):
-        desconto = valor_total * Decimal('0.05')
-        valor_total -= desconto
-        print(f"Desconto adicional: -R${desconto:.2f}")
-        print(f"Total com desconto adicional: R${valor_total:.2f}")
 
     # Confirmação
     confirmacao = input("\nConfirmar venda? (S/N): ").upper()
@@ -309,8 +316,7 @@ def listar_vendas(conn):
     Lista todas as vendas com opções de filtro robustas.
     """
     while True:
-        print("\n--- LISTAGEM DE VENDAS ---")
-        print("Opções de filtro:")
+        print("\n=== LISTAGEM DE VENDAS ===")
         print("1. Listar todas as vendas")
         print("2. Filtrar por período")
         print("3. Filtrar por cliente")

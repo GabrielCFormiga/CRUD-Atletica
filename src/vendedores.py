@@ -44,16 +44,6 @@ def validar_telefone(telefone):
 ############################################################################################################
 
 def buscar_vendedor_por_matricula(conn, matricula):
-    """
-    Busca um vendedor pelo número de matrícula no banco de dados.
-    
-    Args:
-        matricula (str): Número de matrícula do vendedor.
-    
-    Returns:
-        tuple or None: Dados do vendedor se encontrado, ou None se não encontrado ou em caso de erro.
-    """
-    
     try:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM vendedores WHERE matricula = %s", (matricula,))
@@ -67,31 +57,33 @@ def buscar_vendedor_por_matricula(conn, matricula):
             cursor.close()
 
 def buscar_vendedor_por_nome(conn, nome):
-    """
-    Busca vendedores pelo nome no banco de dados.
-    
-    Args:
-        nome (str): Nome ou parte do nome do vendedor a ser buscado.
-    
-    Returns:
-        None
-    """
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM vendedores WHERE nome ILIKE %s ORDER BY nome", (f"%{nome}%",))
+        cursor.execute("""
+            SELECT matricula, nome, email, telefone, ativo 
+            FROM vendedores 
+            WHERE nome ILIKE %s 
+            ORDER BY nome
+        """, (f"%{nome}%",))
         vendedores = cursor.fetchall()
         
         if vendedores:
-            print("\n--- Resultados da Busca ---")
+            print("\n╭───────────────────────────────────────────────────────────────────────────────────────────────────╮")
+            print(f"│ {'Matrícula':<12} │ {'Nome':<25} │ {'Email':<25} │ {'Telefone':<15} │ {'Status':<8} │")
+            print("├──────────────┼───────────────────────────┼───────────────────────────┼─────────────────┼──────────┤")
+            
             for vendedor in vendedores:
                 matricula, nome, email, telefone, ativo = vendedor
                 status = "Ativo" if ativo else "Inativo"
-                print(f"Matrícula: {matricula} | Nome: {nome} | Email: {email} | Tel: {telefone} | Status: {status}")
+                print(f"│ {matricula:<12} │ {nome[:25]:<25} │ {email[:25]:<25} │ {telefone:<15} │ {status:<8} │")
+            
+            print("╰──────────────┴───────────────────────────┴───────────────────────────┴─────────────────┴──────────╯")
+            print(f"\nTotal encontrado: {len(vendedores)} vendedor(es)")
         else:
-            print("Nenhum vendedor encontrado com esse nome.")
+            print("\nNenhum vendedor encontrado com esse nome.")
             
     except Error as e:
-        print(f"Erro ao buscar vendedor: {e}")
+        print(f"\nErro ao buscar vendedor: {e}")
     finally:
         if cursor:
             cursor.close()
@@ -102,15 +94,10 @@ def buscar_vendedor_por_nome(conn, nome):
 
 def criar_vendedor(conn):
     """
-    Cadastra um novo vendedor com validação de dados.
-    
     Fluxo:
     - Solicita matrícula, nome, email, telefone e status de atividade.
     - Valida os dados fornecidos.
     - Insere o vendedor no banco de dados.
-    
-    Returns:
-        None
     """
     print("\n--- Cadastro de Vendedor ---")
     
@@ -197,50 +184,33 @@ def criar_vendedor(conn):
             cursor.close()
 
 def listar_vendedores(conn):
-    """
-    Lista todos os vendedores cadastrados no banco de dados.
-    
-    Args:
-        conn: Conexão com o banco de dados
-    
-    Returns:
-        None
-    """
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT matricula, nome, email, telefone, ativo 
-            FROM vendedores 
-            ORDER BY nome
-        """)
+        cursor.execute("SELECT matricula, nome, email, telefone, ativo FROM vendedores ORDER BY nome")
         vendedores = cursor.fetchall()
         
-        print("\n--- Lista de Vendedores ---")
-        for vendedor in vendedores:
-            status = "Ativo" if vendedor[4] else "Inativo"
-            print(f"\nMatrícula: {vendedor[0]}")
-            print(f"Nome: {vendedor[1]}")
-            print(f"Email: {vendedor[2]}")
-            print(f"Telefone: {vendedor[3]}")
-            print(f"Status: {status}")
-        print(f"\nTotal de vendedores: {len(vendedores)}")
-        
+        if vendedores:
+            print("\n╭───────────────────────────────────────────────────────────────────────────────────────────────────╮")
+            print(f"│ {'Matrícula':<12} │ {'Nome':<25} │ {'Email':<25} │ {'Telefone':<15} │ {'Status':<8} │")
+            print("├──────────────┼───────────────────────────┼───────────────────────────┼─────────────────┼──────────┤")
+            
+            for vendedor in vendedores:
+                matricula, nome, email, telefone, ativo = vendedor
+                status = "Ativo" if ativo else "Inativo"
+                print(f"│ {matricula:<12} │ {nome[:25]:<25} │ {email[:25]:<25} │ {telefone:<15} │ {status:<8} │")
+            
+            print("╰──────────────┴───────────────────────────┴───────────────────────────┴─────────────────┴──────────╯")
+            print(f"\nTotal de vendedores cadastrados: {len(vendedores)}")
+        else:
+            print("\nNenhum vendedor cadastrado no sistema.")
+
     except Error as e:
-        print(f"Erro ao listar vendedores: {e}")
+        print(f"\nErro ao listar vendedores: {e}")
     finally:
         if cursor:
             cursor.close()
 
 def atualizar_vendedor(conn):
-    """
-    Atualiza os dados de um vendedor existente.
-    
-    Args:
-        conn: Conexão com o banco de dados
-    
-    Returns:
-        None
-    """
     print("\n--- Atualização de Vendedor ---")
     
     # Busca pelo vendedor
@@ -349,16 +319,6 @@ def atualizar_vendedor(conn):
             cursor.close()
 
 def deletar_vendedor(conn, matricula):
-    """
-    Remove um vendedor do sistema com validações.
-    
-    Args:
-        conn: Conexão com o banco de dados
-        matricula: Matrícula do vendedor a ser removido
-    
-    Returns:
-        None
-    """
     try:
         cursor = conn.cursor()
         
