@@ -316,7 +316,7 @@ def listar_produtos(conn):
         for produto in produtos:
             print(f"│ {produto[0]:<4} │ {produto[1][:20]:<20} │ {produto[2]:<8} │ R${produto[3]:<8.2f} │ {produto[4][:12]:<12} │ {produto[5][:12]:<12} │")
         print("╰──────┴──────────────────────┴──────────┴────────────┴──────────────┴──────────────╯")
-        print(f"Total de produtos cadastrados: {len(produtos)}")
+        print(f"\nTotal de produtos cadastrados: {len(produtos)}")
         
     except Error as e:
         print(f"Erro ao listar produtos: {e}")
