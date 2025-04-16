@@ -1,6 +1,7 @@
 from psycopg2 import Error
 from decimal import Decimal
 from datetime import datetime, timedelta
+import os
 
 from clientes import buscar_cliente_por_matricula
 from produtos import buscar_produto_por_id, listar_produtos, validar_quantidade
@@ -12,24 +13,14 @@ STATUS_VENDA = {
     'CANCELADA': 'Cancelada'
 }
 
+FORMAS_PAGAMENTO = ['Pix', 'Dinheiro', 'Boleto', 'Cartão', 'Berries']
+
 ############################################################################################################
 # MÉTODOS DE VALIDAÇÃO
 ############################################################################################################
 
 def validar_forma_pagamento(forma):
-    """
-    Valida se a forma de pagamento é válida.
-
-    Critérios:
-    - Deve ser 'PIX' ou 'DINHEIRO' (case insensitive).
-
-    Args:
-        forma (str): Forma de pagamento a ser validada.
-
-    Returns:
-        bool: True se a forma de pagamento for válida, False caso contrário.
-    """
-    return forma.upper() in ['PIX', 'DINHEIRO']
+    return forma.upper() in [fp.upper() for fp in FORMAS_PAGAMENTO]
 
 ############################################################################################################
 # MÉTODOS DE BUSCA
@@ -117,6 +108,51 @@ def verificar_desconto(conn, matricula):
 # MÉTODOS CRUD
 ############################################################################################################
 
+def print_linha(tamanho=70):
+    """Imprime uma linha divisória"""
+    print("-" * tamanho)
+
+def print_resumo_venda(conn, cliente, forma_pagamento, itens, valor_total, desconto_info=None): 
+    # Cabeçalho
+    print("\n" + "=" * 70)
+    print(" RESUMO DA VENDA ".center(70, "~"))
+    print("=" * 70)
+    
+    # Informações básicas
+    print(f"\n{'Cliente:':<15} {cliente[1]}")
+    print(f"{'Pagamento:':<15} {forma_pagamento}")
+    
+    # Tabela de itens
+    print("\n" + " ITENS ".center(70, "-"))
+    print(f"{'Produto':<30} {'Qtd':>5} {'Valor':>10} {'Total':>10}")
+    print_linha()
+    
+    for item in itens:
+        produto = buscar_produto_por_id(conn, item['id_produto'])
+        subtotal = Decimal(item['quantidade']) * item['preco_unitario']
+        print(
+            f"{produto[1][:28]:<30} "
+            f"{item['quantidade']:>5}x "
+            f"R${item['preco_unitario']:>7.2f} "
+            f"R${subtotal:>8.2f}"
+        )
+    
+    # Totais
+    print_linha()
+    print(f"{'SUBTOTAL:':<40} R${valor_total:>8.2f}")
+    
+    # Descontos (se aplicável)
+    if desconto_info and desconto_info['tem_desconto']:
+        desconto = valor_total * Decimal('0.10')  # 10% de desconto
+        valor_total -= desconto
+        print(f"{'DESCONTO (' + desconto_info['motivo'] + '):':<40} -R${desconto:>7.2f}")
+        print_linha()
+        print(f"{'TOTAL FINAL:':<40} R${valor_total:>8.2f}")
+    else:
+        print(f"{'TOTAL:':<40} R${valor_total:>8.2f}")
+    
+    print("=" * 70 + "\n")
+
 def registrar_venda(conn):
     """
     Fluxo:
@@ -130,12 +166,12 @@ def registrar_venda(conn):
     
     # Validação do cliente
     while True:
-        matricula = input("Matrícula do cliente: ").strip()
+        matricula = input("\nMatrícula do cliente: ").strip()
         cliente = buscar_cliente_por_matricula(conn, matricula)
         
         if not cliente:
-            print("Cliente não encontrado!")
-            continuar = input("Deseja tentar novamente? (S/N): ").upper()
+            print("\nCliente não encontrado!")
+            continuar = input("\nDeseja tentar novamente? (S/N): ").upper()
             if continuar != 'S':
                 return None
             continue
@@ -153,15 +189,22 @@ def registrar_venda(conn):
     
     # Validação da forma de pagamento
     while True:
-        forma_pagamento = input("\nForma de pagamento (PIX/DINHEIRO): ").strip().upper()
-        if not validar_forma_pagamento(forma_pagamento):
-            print("Forma de pagamento inválida! Escolha entre PIX ou DINHEIRO.")
-            continue
-        break
+        print("\nFormas de pagamento disponíveis:")
+        for i, forma in enumerate(FORMAS_PAGAMENTO, 1):
+            print(f"{i}. {forma}")
+        
+        try:
+            opcao = int(input("Escolha o número da forma de pagamento: "))
+            if 1 <= opcao <= len(FORMAS_PAGAMENTO):
+                forma_pagamento = FORMAS_PAGAMENTO[opcao-1]
+                break
+            print("Opção inválida! Escolha um número da lista.")
+        except ValueError:
+            print("Entrada inválida! Digite apenas o número correspondente.")
     
     # Seleção do vendedor
     while True:
-        matricula_vendedor = input("Matrícula do vendedor: ").strip()
+        matricula_vendedor = input("\nMatrícula do vendedor: ").strip()
         vendedor = buscar_vendedor_por_matricula(conn, matricula_vendedor)
         
         if not vendedor:
@@ -231,7 +274,7 @@ def registrar_venda(conn):
         itens.append({
             'id_produto': id_produto,
             'quantidade': quantidade,
-            'preco_unitario': Decimal(str(produto[3]))  # Conversão segura para Decimal
+            'preco_unitario': Decimal(str(produto[3]))
         })
         
         print(f"\nItem adicionado: {produto[1]} - {quantidade}x R${produto[3]:.2f}")
@@ -242,41 +285,49 @@ def registrar_venda(conn):
     # Cálculo do valor total (usando Decimal para todas operações)
     valor_total = sum(Decimal(item['quantidade']) * item['preco_unitario'] for item in itens)
 
-    # Resumo da venda
-    print("\n--- Resumo da Venda ---")
-    print(f"Cliente: {cliente[1]}")
-    print(f"Forma de pagamento: {forma_pagamento}")
-    print("\nItens:")
-    for item in itens:
-        produto = buscar_produto_por_id(conn, item['id_produto'])
-        subtotal = Decimal(item['quantidade']) * item['preco_unitario']
-        print(f"- {produto[1]}: {item['quantidade']}x R${item['preco_unitario']:.2f} = R${subtotal:.2f}")
-    
-    print(f"\nTotal da venda: R${valor_total:.2f}")
-    
     # Aplicação do desconto especial (se elegível)
     if desconto_info and desconto_info['tem_desconto']:
         desconto = valor_total * Decimal('0.10')  # 10% de desconto
         valor_total -= desconto
-        print(f"\nDESCONTO ESPECIAL APLICADO: -R${desconto:.2f}")
-        print(f"Motivo: {desconto_info['motivo']}")
-        print(f"Total com desconto: R${valor_total:.2f}")
+
+    # Resumo da venda
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print_resumo_venda(conn, cliente, forma_pagamento, itens, valor_total, desconto_info)
 
     # Confirmação
     confirmacao = input("\nConfirmar venda? (S/N): ").upper()
     if confirmacao != 'S':
-        print("Venda cancelada!")
+        print("\nVenda cancelada!")
         return None
     
     # Registra a venda no banco de dados
     try:
         cursor = conn.cursor()
         
-        # Insere a venda com status PENDENTE
-        cursor.execute("""
-            INSERT INTO vendas (cliente_matricula, valor_total, forma_pagamento, status)
-            VALUES (%s, %s, %s, 'PENDENTE') RETURNING id
-        """, (matricula, float(valor_total), forma_pagamento))
+        if desconto_info and desconto_info['tem_desconto']:
+            cursor.execute("""
+                INSERT INTO vendas (
+                    cliente_matricula, valor_total, forma_pagamento, status,
+                    desconto_aplicado, motivo_desconto, valor_desconto
+                )
+                VALUES (%s, %s, %s, 'PENDENTE', TRUE, %s, %s)
+                RETURNING id
+            """, (
+                matricula, 
+                float(valor_total), 
+                forma_pagamento,
+                desconto_info['motivo'],
+                float(desconto)
+            ))
+        else:
+            cursor.execute("""
+                INSERT INTO vendas (
+                    cliente_matricula, valor_total, forma_pagamento, status
+                )
+                VALUES (%s, %s, %s, 'PENDENTE')
+                RETURNING id
+            """, (matricula, float(valor_total), forma_pagamento))
+        
         venda_id = cursor.fetchone()[0]
         
         # Registra a relação vendedor-venda
@@ -325,21 +376,46 @@ def listar_vendas(conn):
         opcao = input("\nEscolha uma opção: ").strip()
         
         if opcao == "1":
-            query = """
-                SELECT v.id, c.nome, v.valor_total, v.data_venda, v.forma_pagamento, v.status, ve.nome as vendedor
-                FROM vendas v
-                LEFT JOIN clientes c ON v.cliente_matricula = c.matricula
-                LEFT JOIN vendedor_vendas vv ON v.id = vv.id_venda
-                LEFT JOIN vendedores ve ON vv.vendedor_matricula = ve.matricula
-                ORDER BY v.data_venda DESC
-                LIMIT 1000
-            """
-            params = ()
-            break
-            
+            try:
+                cursor = conn.cursor()
+                cursor.execute(""" 
+                    SELECT id, cliente_matricula, valor_total, data_venda
+                    FROM vendas
+                """)
+                vendas = cursor.fetchall()
+
+                if vendas:
+                    print("\n╭────────────────────────────────────────────────────────────────────────────────────────╮")
+                    print(f"│ {'ID':<12} │ {'Cliente':<25} │ {'Valor Total':<25} │ {'Data':<15} │")
+                    print("├──────────────┼───────────────────────────┼───────────────────────────┼─────────────────┤")
+                    
+                    for venda in vendas:
+                        id, cliente_matricula, valor_total, data_venda = venda
+                        print(f"│ {id:<12} │ {str(cliente_matricula)[:25]:<25} │ {str(valor_total)[:25]:<25} │ {str(data_venda)[:15]:<15} │")
+                    
+                    print("╰──────────────┴───────────────────────────┴───────────────────────────┴─────────────────╯")
+                    print(f"\nTotal de vendas cadastradas: {len(vendas)}")
+
+                    detalhar = input("\nDeseja detalhar alguma venda? (S/N): ").upper()
+                    if detalhar == 'S':
+                        while True:
+                            venda_id = input("\nID da venda a detalhar: ").strip()
+                            if not venda_id.isdigit():
+                                print("\nID inválido! Deve ser um número.")
+                                continue
+                            break
+                        detalhar_venda(conn, venda_id)
+                else:
+                    print("\nNenhuma venda cadastrada no sistema.")
+            except Error as e:
+                print(f"Erro ao listar vendas: {e}")
+            finally:
+                if cursor:
+                    cursor.close()
+            return
         elif opcao == "2":
             print("\n--- FILTRAR POR PERÍODO ---")
-            
+    
             while True:
                 try:
                     data_inicio = input("Data inicial (DD/MM/AAAA): ").strip()
@@ -349,57 +425,116 @@ def listar_vendas(conn):
                     data_fim_dt = datetime.strptime(data_fim, '%d/%m/%Y')
                     
                     if data_fim_dt < data_inicio_dt:
-                        print("A data final deve ser maior ou igual à data inicial!")
+                        print("\nErro: A data final deve ser maior ou igual à data inicial!")
                         continue
                         
                     if (data_fim_dt - data_inicio_dt) > timedelta(days=365):
-                        print("Período muito longo! O limite é de 1 ano.")
+                        print("\nErro: Período muito longo! O limite é de 1 ano.")
                         continue
                         
-                    query = """
-                        SELECT v.id, c.nome, v.valor_total, v.data_venda, v.forma_pagamento, v.status, ve.nome as vendedor
-                        FROM vendas v
-                        LEFT JOIN clientes c ON v.cliente_matricula = c.matricula
-                        LEFT JOIN vendedor_vendas vv ON v.id = vv.id_venda
-                        LEFT JOIN vendedores ve ON vv.vendedor_matricula = ve.matricula
-                        WHERE v.data_venda BETWEEN %s AND %s
-                        ORDER BY v.data_venda DESC
-                    """
-                    params = (
-                        data_inicio_dt.strftime('%Y-%m-%d'),
-                        data_fim_dt.strftime('%Y-%m-%d')
-                    )
-                    break
+                    try:
+                        cursor = conn.cursor()
+                        cursor.execute(""" 
+                            SELECT id, cliente_matricula, valor_total, data_venda
+                            FROM vendas
+                            WHERE data_venda BETWEEN %s AND %s
+                            ORDER BY data_venda
+                        """, (data_inicio_dt, data_fim_dt))
+                        
+                        vendas = cursor.fetchall()
+
+                        if vendas:
+                            print("\n╭────────────────────────────────────────────────────────────────────────────────────────╮")
+                            print(f"│ {'ID':<12} │ {'Cliente':<25} │ {'Valor Total':<25} │ {'Data':<15} │")
+                            print("├──────────────┼───────────────────────────┼───────────────────────────┼─────────────────┤")
+                            
+                            for venda in vendas:
+                                id, cliente_matricula, valor_total, data_venda = venda
+                                print(f"│ {id:<12} │ {str(cliente_matricula)[:25]:<25} │ R$ {float(valor_total):<22.2f} │ {data_venda.strftime('%d/%m/%Y'):<15} │")
+                            
+                            print("╰──────────────┴───────────────────────────┴───────────────────────────┴─────────────────╯")
+                            print(f"\nTotal de vendas encontradas: {len(vendas)}")
+
+                            detalhar = input("\nDeseja detalhar alguma venda? (S/N): ").upper()
+                            if detalhar == 'S':
+                                while True:
+                                    venda_id = input("\nDigite o ID da venda a detalhar: ").strip()
+                                    if not venda_id.isdigit():
+                                        print("\nErro: ID inválido! Deve ser um número.")
+                                        continue
+                                    detalhar_venda(conn, int(venda_id))
+                                    break
+                        else:
+                            print("\nNenhuma venda encontrada no período especificado.")
+                    
+                    except Error as e:
+                        print(f"\nErro ao consultar vendas: {e}")
+                    
+                    finally:
+                        if cursor:
+                            cursor.close()
+                    
+                    break 
                     
                 except ValueError:
-                    print("Formato de data inválido! Use DD/MM/AAAA.")
+                    print("\nErro: Formato de data inválido! Use DD/MM/AAAA.")
                     continue
-            break
+            return
             
         elif opcao == "3":
             print("\n--- FILTRAR POR CLIENTE ---")
-            
+    
             while True:
                 nome_cliente = input("Nome do cliente (mínimo 3 caracteres): ").strip()
                 
                 if len(nome_cliente) < 3:
-                    print("Por favor, digite pelo menos 3 caracteres para a busca.")
+                    print("\nErro: Por favor, digite pelo menos 3 caracteres para a busca.")
                     continue
                     
-                query = """
-                    SELECT v.id, c.nome, v.valor_total, v.data_venda, v.forma_pagamento, v.status, ve.nome as vendedor
-                    FROM vendas v
-                    LEFT JOIN clientes c ON v.cliente_matricula = c.matricula
-                    LEFT JOIN vendedor_vendas vv ON v.id = vv.id_venda
-                    LEFT JOIN vendedores ve ON vv.vendedor_matricula = ve.matricula
-                    WHERE c.nome ILIKE %s
-                    ORDER BY v.data_venda DESC
-                    LIMIT 200
-                """
-                params = (f"%{nome_cliente}%",)
-                break
-            break
-            
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute(""" 
+                        SELECT v.id, v.cliente_matricula, v.valor_total, v.data_venda, c.nome
+                        FROM vendas v
+                        JOIN clientes c ON v.cliente_matricula = c.matricula
+                        WHERE c.nome ILIKE %s
+                        ORDER BY v.data_venda DESC
+                    """, (f"%{nome_cliente}%",))
+                    
+                    vendas = cursor.fetchall()
+
+                    if vendas:
+                        print("\n╭──────────────────────────────────────────────────────────────────────────────────────╮")
+                        print(f"│ {'ID':<8} │ {'Cliente':<25} │ {'Matrícula':<12} │ {'Valor Total':<15} │ {'Data':<12} │")
+                        print("├──────────┼───────────────────────────┼──────────────┼─────────────────┼──────────────┤")
+                        
+                        for venda in vendas:
+                            id, cliente_matricula, valor_total, data_venda, nome = venda
+                            print(f"│ {id:<8} │ {str(nome)[:25]:<25} │ {str(cliente_matricula)[:12]:<12} │ R$ {float(valor_total):<12.2f} │ {data_venda.strftime('%d/%m/%Y'):<12} │")
+                        
+                        print("╰──────────┴───────────────────────────┴──────────────┴─────────────────┴──────────────╯")
+                        print(f"\nTotal de vendas encontradas: {len(vendas)}")
+
+                        detalhar = input("\nDeseja detalhar alguma venda? (S/N): ").upper()
+                        if detalhar == 'S':
+                            while True:
+                                venda_id = input("\nDigite o ID da venda a detalhar: ").strip()
+                                if not venda_id.isdigit():
+                                    print("\nErro: ID inválido! Deve ser um número.")
+                                    continue
+                                detalhar_venda(conn, int(venda_id))
+                                break
+                    else:
+                        print("\nNenhuma venda encontrada para o cliente especificado.")
+                
+                except Error as e:
+                    print(f"\nErro ao consultar vendas: {e}")
+                
+                finally:
+                    if cursor:
+                        cursor.close()
+                
+                return            
         elif opcao == "4":
             return
             
@@ -407,107 +542,84 @@ def listar_vendas(conn):
             print("Opção inválida! Digite um número entre 1 e 4.")
             continue
     
-    try:    
-        cursor = conn.cursor()
-        cursor.execute(query, params)
-        vendas = cursor.fetchall()
-        
-        if not vendas:
-            print("\nNenhuma venda encontrada com os critérios selecionados.")
-            return
-            
-        print("\n--- RESULTADOS ---")
-        print(f"Total de vendas encontradas: {len(vendas)}")
-        
-        pagina = 0
-        itens_por_pagina = 10
-        
-        while True:
-            inicio = pagina * itens_por_pagina
-            fim = inicio + itens_por_pagina
-            pagina_atual = vendas[inicio:fim]
-            
-            print(f"\n--- Página {pagina + 1} ---")
-            for venda in pagina_atual:
-                print("\n" + "-" * 50)
-                print(f"ID Venda: {venda[0]}")
-                print(f"Cliente: {venda[1]}")
-                print(f"Vendedor: {venda[6]}")
-                print(f"Valor Total: R${venda[2]:.2f}")
-                print(f"Data/Hora: {venda[3].strftime('%d/%m/%Y %H:%M')}")
-                print(f"Forma Pagamento: {venda[4]}")
-                print(f"Status: {STATUS_VENDA.get(venda[5], venda[5])}")
-            
-            print("\n" + "-" * 50)
-            
-            if fim >= len(vendas):
-                print("\nFim dos resultados.")
-                break
-                
-            opcao = input("\nPróxima página? (S/N): ").strip().upper()
-            if opcao != 'S':
-                break
-                
-            pagina += 1
-            
-    except Error as e:
-        print(f"\nErro ao acessar o banco de dados: {e}")
-        
-    finally:
-        if cursor:
-            cursor.close()
-
 def detalhar_venda(conn, venda_id):
-    """
-    Exibe os detalhes de uma venda específica, incluindo os itens vendidos.
-
-    Fluxo:
-    - Busca os dados da venda pelo ID.
-    - Exibe informações como cliente, valor total, data e forma de pagamento.
-    - Lista os itens da venda, incluindo nome do produto, quantidade, valor unitário e subtotal.
-
-    Args:
-        venda_id (int): ID da venda a ser detalhada.
-
-    Returns:
-        None
-    """
     try:
         cursor = conn.cursor()
         
-        # Busca dados da venda
+        # Busca dados principais da venda (incluindo desconto)
         cursor.execute("""
-            SELECT v.id, c.nome, v.valor_total, v.data_venda, v.forma_pagamento
+            SELECT v.id, c.nome, v.valor_total, v.data_venda, 
+                   v.forma_pagamento, v.status, ve.nome as vendedor,
+                   v.desconto_aplicado, v.motivo_desconto, v.valor_desconto
             FROM vendas v
             JOIN clientes c ON v.cliente_matricula = c.matricula
+            LEFT JOIN vendedor_vendas vv ON v.id = vv.id_venda
+            LEFT JOIN vendedores ve ON vv.vendedor_matricula = ve.matricula
             WHERE v.id = %s
         """, (venda_id,))
         venda = cursor.fetchone()
         
-        if venda:
-            print(f"\n--- Detalhes da Venda {venda_id} ---")
-            print(f"Cliente: {venda[1]}")
-            print(f"Valor Total: R${venda[2]:.2f}")
-            print(f"Data: {venda[3]}")
-            print(f"Forma de Pagamento: {venda[4]}")
-            
-            # Busca itens da venda
-            cursor.execute("""
-                SELECT p.nome, iv.quantidade, iv.valor_unitario
-                FROM itens_venda iv
-                JOIN produtos p ON iv.id_produto = p.id
-                WHERE iv.id_venda = %s
-            """, (venda_id,))
-            itens = cursor.fetchall()
-            
-            print("\nItens da Venda:")
-            for item in itens:
-                print(f"- {item[0]} | {item[1]}x R${item[2]:.2f} | Subtotal: R${item[1] * item[2]:.2f}")
+        if not venda:
+            print("\nVenda não encontrada!")
+            return
+
+        # Busca itens da venda
+        cursor.execute("""
+            SELECT p.id, p.nome, iv.quantidade, iv.valor_unitario,
+                   (iv.quantidade * iv.valor_unitario) as subtotal
+            FROM itens_venda iv
+            JOIN produtos p ON iv.id_produto = p.id
+            WHERE iv.id_venda = %s
+            ORDER BY p.nome
+        """, (venda_id,))
+        itens = cursor.fetchall()
+
+        # Cabeçalho
+        print("\n" + "=" * 70)
+        print(f" DETALHES DA VENDA {venda[0]} ".center(70, "~"))
+        print("=" * 70)
+        
+        # Informações básicas (incluindo status de desconto)
+        print(f"\n{'Cliente:':<15} {venda[1]}")
+        print(f"{'Vendedor:':<15} {venda[6] or 'Não informado'}")
+        print(f"{'Data:':<15} {venda[3].strftime('%d/%m/%Y %H:%M')}")
+        print(f"{'Pagamento:':<15} {venda[4]}")
+        print(f"{'Status:':<15} {STATUS_VENDA.get(venda[5], venda[5])}")
+        if venda[7]:  # desconto_aplicado = TRUE
+            print(f"{'Desconto:':<15} {venda[8]}")  # motivo_desconto
+        
+        # Tabela de itens
+        print("\n" + " ITENS ".center(70, "-"))
+        print(f"{'Produto':<30} {'Qtd':>5} {'V.Unit.':>10} {'Subtotal':>10}")
+        print_linha()
+        
+        subtotal_calculado = Decimal(0)
+        for item in itens:
+            subtotal_item = Decimal(item[2]) * Decimal(item[3])
+            subtotal_calculado += subtotal_item
+            print(
+                f"{item[1][:28]:<30} "
+                f"{item[2]:>5}x "
+                f"R${Decimal(item[3]):>7.2f} "
+                f"R${subtotal_item:>8.2f}"
+            )
+        
+        # Totais com desconto (se aplicável)
+        print_linha()
+        valor_total = Decimal(venda[2])
+        
+        if venda[7]:  # Se desconto foi aplicado
+            print(f"{'SUBTOTAL:':<40} R${subtotal_calculado:>8.2f}")
+            print(f"{'DESCONTO:':<40} -R${Decimal(venda[9]):>8.2f}")  # valor_desconto
+            print_linha()
+            print(f"{'TOTAL FINAL:':<40} R${valor_total:>8.2f}")
         else:
-            print("Venda não encontrada!")
+            print(f"{'TOTAL:':<40} R${valor_total:>8.2f}")
+        
+        print("=" * 70 + "\n")
             
     except Error as e:
-        print(f"Erro ao buscar venda: {e}")
+        print(f"\nErro ao buscar venda: {e}")
     finally:
         if cursor:
             cursor.close()
@@ -516,9 +628,9 @@ def autorizar_venda(conn):
     print("\n--- Autorização de Venda ---")
     
     while True:
-        venda_id = input("ID da venda a autorizar: ").strip()
+        venda_id = input("\nID da venda a autorizar: ").strip()
         if not venda_id.isdigit():
-            print("ID inválido! Deve ser um número.")
+            print("\nID inválido! Deve ser um número.")
             continue
             
         try:
@@ -532,27 +644,19 @@ def autorizar_venda(conn):
             venda = cursor.fetchone()
             
             if not venda:
-                print("Venda não encontrada!")
-                continue
+                print("\nVenda não encontrada!")
+                return
                 
             if venda[1] != 'PENDENTE':
-                print(f"Esta venda já está {STATUS_VENDA.get(venda[1], venda[1])}")
-                continue
-                
-            # Busca o vendedor responsável
-            cursor.execute("""
-                SELECT v.nome FROM vendedor_vendas vv
-                JOIN vendedores v ON vv.vendedor_matricula = v.matricula
-                WHERE vv.id_venda = %s
-            """, (venda_id,))
-            vendedor = cursor.fetchone()
+                print(f"\nEsta venda já está {STATUS_VENDA.get(venda[1], venda[1])}")
+                return
+
+            detalhar_venda(conn, venda_id)
             
-            print(f"\nVenda ID: {venda[0]}")
-            print(f"Vendedor: {vendedor[0] if vendedor else 'Não informado'}")
-            
+            # Confirmação
             confirmacao = input("\nConfirmar autorização desta venda? (S/N): ").upper()
             if confirmacao != 'S':
-                print("Operação cancelada!")
+                print("\nOperação cancelada!")
                 return
                 
             # Atualiza o status da venda
@@ -587,6 +691,8 @@ def autorizar_venda(conn):
 
 def menu_vendas(conn):
     while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
+
         print("\n=== MENU DE VENDAS ===")
         print("1. Registrar nova venda")
         print("2. Listar vendas")
@@ -598,14 +704,25 @@ def menu_vendas(conn):
         
         if opcao == "1":
             registrar_venda(conn)
+            input("\nPressione Enter para continuar...")
         elif opcao == "2":
+            os.system('cls' if os.name == 'nt' else 'clear')
             listar_vendas(conn)
+            input("\nPressione Enter para continuar...")
         elif opcao == "3":
-            venda_id = input("\nID da venda para detalhar: ").strip()
+            while True:
+                venda_id = input("\nID da venda a detalhar: ").strip()
+                if not venda_id.isdigit():
+                    print("\nID inválido! Deve ser um número.")
+                    continue
+                break
             detalhar_venda(conn, venda_id)
+            input("\nPressione Enter para continuar...")
         elif opcao == "4":
             autorizar_venda(conn)
+            input("\nPressione Enter para continuar...")
         elif opcao == "5":
             break
         else:
-            print("Opção inválida. Tente novamente.")
+            print("\nOpção inválida. Tente novamente.")
+            input("\nPressione Enter para continuar...")

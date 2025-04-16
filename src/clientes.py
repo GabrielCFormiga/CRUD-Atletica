@@ -1,4 +1,5 @@
 from psycopg2 import Error
+import os
 
 ############################################################################################################
 # MÉTODOS DE VALIDAÇÃO
@@ -438,7 +439,7 @@ def deletar_cliente(conn, matricula):
         
         if cursor.fetchone():
             print("\nEste cliente possui vendas associadas e não pode ser removido!")
-            print("Opções:")
+            print("\nOpções:")
             print("1. Cancelar a operação")
             print("2. Ver as vendas do cliente")
             
@@ -453,14 +454,14 @@ def deletar_cliente(conn, matricula):
                 """, (matricula,))
                 vendas = cursor.fetchall()
                 
-                print("\n╭───────────────────────────── Vendas do Cliente ──────────────────────────────╮")
+                print("\n╭────────────────────────────────────────────────────────────╮")
                 print(f"│ {'ID':<6} │ {'Data':<19} │ {'Valor Total':<12} │ {'Status':<12} │")
-                print("├───────┼─────────────────────┼──────────────┼──────────────┤")
+                print("├────────┼─────────────────────┼──────────────┼──────────────┤")
                 
                 for venda in vendas:
                     print(f"│ {venda[0]:<6} │ {venda[1].strftime('%d/%m/%Y %H:%M'):<19} │ R${venda[2]:<10.2f} │ {venda[3]:<12} │")
                 
-                print("╰───────┴─────────────────────┴──────────────┴──────────────╯")
+                print("╰────────┴─────────────────────┴──────────────┴──────────────╯")
             
             return
         
@@ -486,6 +487,8 @@ def deletar_cliente(conn, matricula):
 
 def menu_clientes(conn):
     while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
+
         print("\n=== MENU DE CLIENTES ===")
         print("1. Cadastrar novo cliente")
         print("2. Listar todos os clientes")
@@ -498,30 +501,37 @@ def menu_clientes(conn):
         
         if opcao == "1":
             criar_cliente(conn)
+            input("\nPressione Enter para continuar...")
             
         elif opcao == "2":
             listar_clientes(conn)
+            input("\nPressione Enter para continuar...")
             
         elif opcao == "3":
             atualizar_cliente(conn)
+            input("\nPressione Enter para continuar...")
             
         elif opcao == "4":
             matricula = input("\nMatrícula do cliente a ser removido: ")
             cliente = buscar_cliente_por_matricula(conn, matricula)
             
             if cliente:
-                confirmacao = input(f"Tem certeza que deseja remover {cliente[1]} (matrícula: {matricula})? (S/N): ").upper()
+                confirmacao = input(f"\nTem certeza que deseja remover {cliente[1]} (matrícula: {matricula})? (S/N): ").upper()
                 if confirmacao == "S":
                     deletar_cliente(conn, matricula)
             else:
-                print("Cliente não encontrado!")
+                print("\nCliente não encontrado!")
+
+            input("\nPressione Enter para continuar...")
                 
         elif opcao == "5":
             nome = input("\nNome do cliente a buscar: ")
             buscar_cliente_por_nome(conn, nome)
+            input("\nPressione Enter para continuar...")
             
         elif opcao == "6":
             break
             
         else:
-            print("Opção inválida. Tente novamente.")
+            print("\nOpção inválida. Tente novamente.")
+            input("\nPressione Enter para continuar...")

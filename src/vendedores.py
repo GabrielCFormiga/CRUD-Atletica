@@ -1,4 +1,5 @@
 from psycopg2 import Error
+import os
 
 ############################################################################################################
 # MÉTODOS DE VALIDAÇÃO
@@ -170,7 +171,7 @@ def criar_vendedor(conn):
             VALUES (%s, %s, %s, %s, %s)
         """, (matricula, nome, email, telefone, ativo))
         conn.commit()
-        print("\Vendedor cadastrado com sucesso!")
+        print("\nVendedor cadastrado com sucesso!")
         print(f"Matrícula: {matricula}")
         print(f"Nome: {nome}")
         print(f"Email: {email}")
@@ -355,6 +356,8 @@ def deletar_vendedor(conn, matricula):
 
 def menu_vendedores(conn):
     while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
+
         print("\n=== MENU DE VENDEDORES ===")
         print("1. Cadastrar novo vendedor")
         print("2. Listar todos os vendedores")
@@ -367,24 +370,30 @@ def menu_vendedores(conn):
         
         if opcao == "1":
             criar_vendedor(conn)
+            input("\nPressione Enter para continuar...")
         elif opcao == "2":
             listar_vendedores(conn)
+            input("\nPressione Enter para continuar...")
         elif opcao == "3":
             atualizar_vendedor(conn)
+            input("\nPressione Enter para continuar...")
         elif opcao == "4":
             matricula = input("\nMatrícula do vendedor a remover: ")
             vendedor = buscar_vendedor_por_matricula(conn, matricula)
             if vendedor:
-                confirmacao = input(f"Tem certeza que deseja remover {vendedor[1]}? (S/N): ").upper()
+                confirmacao = input(f"\nTem certeza que deseja remover {vendedor[1]}? (S/N): ").upper()
                 if confirmacao == "S":
                     deletar_vendedor(conn, matricula)
             else:
                 print("Vendedor não encontrado!")
+            input("\nPressione Enter para continuar...")
         elif opcao == "5":
             nome = input("\nNome do vendedor a buscar: ")
             buscar_vendedor_por_nome(conn, nome)
+            input("\nPressione Enter para continuar...")
         elif opcao == "6":
             break
         else:
             print("Opção inválida. Tente novamente.")
+            input("\nPressione Enter para continuar...")
 

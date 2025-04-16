@@ -1,4 +1,5 @@
 from psycopg2 import Error
+import os
 
 ############################################################################################################
 # MÉTODOS CRUD
@@ -139,34 +140,124 @@ def relatorio_estoque_baixo(conn, limite=None):
         if cursor:
             cursor.close()
 
+def relatorio_vendas_vendedores(conn):
+    """
+    Gera relatório de vendas por vendedor com estatísticas completas.
+    
+    Fluxo:
+    1. Consulta vendas agrupadas por vendedor
+    2. Calcula totais e médias
+    3. Exibe relatório formatado
+    """
+    try:
+        cursor = conn.cursor()
+        
+        # Vendas por vendedor
+        cursor.execute("""
+            SELECT 
+                v.matricula,
+                v.nome,
+                COUNT(vv.id_venda) AS total_vendas,
+                COALESCE(SUM(ven.valor_total), 0) AS valor_total_vendas,
+                COALESCE(AVG(ven.valor_total), 0) AS media_por_venda,
+                MIN(ven.data_venda) AS primeira_venda,
+                MAX(ven.data_venda) AS ultima_venda
+            FROM vendedores v
+            LEFT JOIN vendedor_vendas vv ON v.matricula = vv.vendedor_matricula
+            LEFT JOIN vendas ven ON vv.id_venda = ven.id
+            WHERE v.ativo = TRUE
+            GROUP BY v.matricula, v.nome
+            ORDER BY valor_total_vendas DESC, total_vendas DESC
+        """)
+        
+        vendedores = cursor.fetchall()
+        
+        # Totais
+        cursor.execute("""
+            SELECT 
+                COUNT(DISTINCT v.matricula) AS total_vendedores,
+                COUNT(vv.id_venda) AS total_vendas,
+                COALESCE(SUM(ven.valor_total), 0) AS valor_total_geral,
+                COALESCE(AVG(ven.valor_total), 0) AS media_geral
+            FROM vendedores v
+            LEFT JOIN vendedor_vendas vv ON v.matricula = vv.vendedor_matricula
+            LEFT JOIN vendas ven ON vv.id_venda = ven.id
+            WHERE v.ativo = TRUE
+        """)
+        
+        totais = cursor.fetchone()
+        
+        # Cabeçalho 
+        print("\n" + "=" * 95)
+        print(" RELATÓRIO DE VENDAS POR VENDEDOR ".center(95, "~"))
+        print("=" * 95)
+        
+        # Totais
+        print(f"\n{'Total de vendedores ativos:':<30} {totais[0]}")
+        print(f"{'Total de vendas realizadas:':<30} {totais[1]}")
+        print(f"{'Valor total vendido:':<30} R$ {totais[2]:.2f}")
+        print(f"{'Média por venda:':<30} R$ {totais[3]:.2f}")
+        
+        # Detalhamento por vendedor
+        print("\n" + "=" * 95)
+        print(f"{'Matrícula':<12} | {'Nome':<20} | {'Vendas':<8} | {'Total Vendido':<15} | {'Média/Venda':<12} | {'Última Venda':<12}")
+        print("-" * 95)
+        
+        for vendedor in vendedores:
+            print(
+                f"{vendedor[0]:<12} | "
+                f"{vendedor[1][:20]:<20} | "
+                f"{vendedor[2]:>8} | "
+                f"R$ {vendedor[3]:>12.2f} | "
+                f"R$ {vendedor[4]:>10.2f} | "
+                f"{vendedor[5].strftime('%d/%m/%Y') if vendedor[5] else 'N/A':<12}"
+            )
+        
+        print("=" * 95)
+        
+    except Error as e:
+        print(f"\nErro ao gerar relatório: {str(e)}")
+    finally:
+        if cursor:
+            cursor.close()
+
 ############################################################################################################
 # MÉTODOS DE MENU
 ############################################################################################################
 
 def menu_relatorios(conn):
-    limite_padrao = 5  # Define um limite padrão
+    limite_padrao = 5
     
     while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
+
         print("\n=== MENU DE RELATÓRIOS ===")
         print(f"1. Relatório de sócios")
         print(f"2. Relatório de estoque baixo (limite atual: {limite_padrao})")
-        print(f"3. Configurar limite para estoque baixo")
-        print(f"4. Voltar ao menu principal")
+        print(f"3. Relatório de vendas por vendedor")
+        print(f"4. Configurar limite para estoque baixo")
+        print(f"5. Voltar ao menu principal")
         
         opcao = input("\nEscolha uma opção: ").strip()
         
         if opcao == "1":
             relatorio_socios(conn)
+            input("\nPressione Enter para continuar...")
             
         elif opcao == "2":
             relatorio_estoque_baixo(conn, limite_padrao)
+            input("\nPressione Enter para continuar...")
             
         elif opcao == "3":
+            relatorio_vendas_vendedores(conn)
+            input("\nPressione Enter para continuar...")
+            
+        elif opcao == "4":
             while True:
                 try:
                     novo_limite = input(f"\nNovo limite para estoque baixo (atual: {limite_padrao}): ").strip()
                     
-                    if not novo_limite:  # Se pressionar Enter sem digitar, mantém o atual
+                    if not novo_limite:
                         print(f"Mantendo o limite atual de {limite_padrao}.")
                         break
                     
@@ -177,14 +268,17 @@ def menu_relatorios(conn):
                     
                     limite_padrao = novo_limite
                     print(f"\nNovo limite definido: {limite_padrao} unidades.")
-                    relatorio_estoque_baixo(conn, limite_padrao)  # Mostra o relatório com novo limite
+                    relatorio_estoque_baixo(conn, limite_padrao)
                     break
                     
                 except ValueError:
                     print("Por favor, digite um número inteiro válido.")
             
-        elif opcao == "4":
+            input("\nPressione Enter para continuar...")
+            
+        elif opcao == "5":
             break
             
         else:
-            print("Opção inválida. Digite um número entre 1 e 4.")
+            print("\nOpção inválida. Digite um número entre 1 e 5.")
+            input("\nPressione Enter para continuar...")
